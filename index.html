@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ForageBench: A Photorealistic, Physically Grounded Benchmark for Interactive Object Search</title>
+<meta name="description" content="ForageBench is a photorealistic, physically grounded benchmark for interactive object search on a mobile manipulator, built with the PhyGS simulation framework.">
+<meta name="keywords" content="ForageBench, interactive object search, mobile manipulation, benchmark, simulation, Spot, embodied AI">
+<meta name="robots" content="index, follow">
+
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="ForageBench">
+<meta property="og:title" content="ForageBench: A Photorealistic, Physically Grounded Benchmark for Interactive Object Search">
+<meta property="og:description" content="A benchmark for interactive object search on a mobile manipulator, built with PhyGS.">
+<meta property="og:url" content="https://m-and-m-lab.github.io/ForageBench/">
+<meta property="og:image" content="https://m-and-m-lab.github.io/ForageBench/assets/images/social_preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="ForageBench">
+<meta name="twitter:description" content="A photorealistic, physically grounded benchmark for interactive object search.">
+<meta name="twitter:image" content="https://m-and-m-lab.github.io/ForageBench/assets/images/social_preview.png">
+
+<link rel="icon" type="image/svg+xml" href="assets/images/favicon.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700;900&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- ====================== HERO ====================== -->
+<header class="hero">
+  <div class="container">
+    <h1 class="title">Forage<span class="hl">Bench</span></h1>
+    <p class="subtitle">A Photorealistic, Physically Grounded Benchmark for Interactive Object Search</p>
+
+    <!-- Authors. To hyperlink a name: <a href="https://homepage">Name</a> -->
+    <p class="authors">
+      <a href="https://aparajitosaha.github.io" target="_blank" rel="noopener">Aparajito Saha</a><sup>1</sup>,
+      <a href="https://ganzh6880.github.io" target="_blank" rel="noopener">Zhen Hao Gan</a><sup>1</sup>,
+      Jinjia Guo<sup>1</sup>, Jacob Skwirsk<sup>1</sup>, Jeremy Acheampong<sup>1</sup>,<br>
+      <a href="https://anton-arapin.github.io" target="_blank" rel="noopener">Anton Arapin</a><sup>1</sup>,
+      <a href="https://chahyon-ku.github.io" target="_blank" rel="noopener">Chahyon Ku</a><sup>1</sup>,
+      <a href="https://phyllish.github.io" target="_blank" rel="noopener">Yue Hu</a><sup>1</sup>,
+      <a href="https://www.mmintlab.com/people/nima-fazeli/" target="_blank" rel="noopener">Nima Fazeli</a><sup>1</sup>,
+      <a href="https://bucherb.github.io" target="_blank" rel="noopener">Bernadette Bucher</a><sup>1</sup>
+    </p>
+    <p class="affil"><sup>1</sup>Robotics Department, University of Michigan, Ann Arbor</p>
+
+    <div class="hero-gap" aria-hidden="true">&nbsp;</div>
+
+    <div class="links">
+      <a class="lbtn" href="assets/papers/foragebench.pdf"><i class="fas fa-file-pdf"></i> Paper</a>
+      <span class="lbtn disabled"><i class="fab fa-github"></i> Code <small>(coming soon)</small></span>
+      <a class="lbtn" href="https://m-and-m-lab.github.io/PhyGS/"><i class="fas fa-arrow-up-right-from-square"></i> PhyGS</a>
+    </div>
+  </div>
+</header>
+
+<!-- ====================== TEASER ====================== -->
+<section style="padding-top:8px">
+  <div class="container">
+    <figure class="fig-wide">
+      <!-- TEASER: export ForageBench paper Figure 1 -> assets/images/teaser.png -->
+      <div class="media ratio-16-7 placeholder">
+        <div class="ph-in"><div class="pi"><i class="fas fa-image"></i></div>
+          Teaser (paper Figure 1)<br><code>assets/images/teaser.png</code></div>
+      </div>
+    </figure>
+    <p class="lead-line">A robot must <b>locate and retrieve</b> a language-specified target in an unseen, house-scale
+      home — often having to <b>physically interact</b> with the scene to make an occluded target perceivable.</p>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ====================== ABSTRACT ====================== -->
+<section id="abstract">
+  <div class="container">
+    <h2 class="sec">Abstract</h2>
+    <div class="prose justify">
+      <p>Interactive semantic object search is the task of locating and retrieving a target object in an
+      unseen, house-scale environment. This task requires both long-horizon spatial reasoning for navigation
+      and fine-grained skills for manipulation, often demanding that an agent physically interact with the
+      environment to make an occluded target perceivable. Prior benchmarks have largely isolated one
+      capability or the other; we present <strong>ForageBench</strong>, a benchmark designed to study them
+      jointly on a mobile manipulator developed in our newly introduced simulation framework
+      <strong>PhyGS</strong>.</p>
+      <p>PhyGS integrates large-scale procedural scene generation with photorealism, physical grounding, and
+      low-level robotic control. Using PhyGS, we build an evaluation dataset of 25 house-scale scenes and 100
+      episodes spanning a progression of difficulty, and benchmark state-of-the-art vision–language models
+      acting as high-level skill orchestrators. Our best baseline on a simulated Boston Dynamics Spot with Arm
+      achieves an interactive search success of only 4%. PhyGS provides a hardware-abstracted interface
+      mirroring Spot's SDK for development transfer between simulation and the physical robot.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ====================== THE TASK ====================== -->
+<section id="task">
+  <div class="container">
+    <h2 class="sec">The Task</h2>
+    <div class="prose justify" style="margin-bottom:26px">
+      <p>An agent starts at a collision-free pose in an unseen home, with no prior map, and is given a
+      natural-language description of a target (e.g. <em>"a ceramic mug"</em>). It must perceive, physically
+      retrieve, and report the target — perceiving through onboard RGB-D and acting through the robot's
+      low-level controllers. Each scene contributes four episodes along a progression of difficulty:</p>
+    </div>
+    <ol class="tiers prose">
+      <li><b>Separate room, visible.</b> The agent must open doors to traverse between rooms, but need not open receptacles.</li>
+      <li><b>Same room, not perceivable.</b> The agent uses semantic cues to localize the target and manipulates receptacles to retrieve it, without leaving the room.</li>
+      <li><b>Separate room, not perceivable.</b> The agent must traverse between rooms and open receptacles over the course of its search.</li>
+      <li><b>Separate room, occluded.</b> In addition, the agent must move non-target objects that block its view before the target can be perceived and retrieved.</li>
+    </ol>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ====================== DATASET ====================== -->
+<section id="dataset">
+  <div class="container">
+    <h2 class="sec">The Dataset</h2>
+    <div class="prose justify">
+      <p>25 procedurally generated single-story homes (two-, three-, and four-bedroom layouts, each with a
+      bathroom, kitchen, living room, and dining room), populated with 50–200 unique gripper-scale objects from
+      Objaverse-XL and articulated furniture — doors, cabinets, drawers, windows, ovens, dishwashers — set closed
+      at episode start. All scenes are generated with PhyGS.</p>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="v">25</div><div class="k">House-scale scenes</div></div>
+      <div class="stat"><div class="v">100</div><div class="k">Episodes</div></div>
+      <div class="stat"><div class="v">4</div><div class="k">Difficulty tiers / scene</div></div>
+      <div class="stat"><div class="v">4%</div><div class="k">Best agent success</div></div>
+    </div>
+
+    <figure class="fig-wide" style="margin-top:26px">
+      <!-- ForageBench paper Figure 2 (example scenes) -> assets/images/scenes.png -->
+      <div class="media ratio-16-7 placeholder">
+        <div class="ph-in"><div class="pi"><i class="fas fa-table-cells-large"></i></div>
+          Example scenes (paper Figure 2)<br><code>assets/images/scenes.png</code></div>
+      </div>
+      <figcaption class="cap">A sample of physically-grounded, visually diverse homes generated by PhyGS and rendered in IsaacSim.</figcaption>
+    </figure>
+
+    <div class="two-col" style="margin-top:30px">
+      <div>
+        <h3>Agent interface</h3>
+        <p class="prose" style="font-size:16px">A high-level skill API matched to Spot's SDK. Methods may instead use the exposed continuous control directly.</p>
+        <pre style="margin-top:10px">navigate(target)
+open_door(ref)     close_door(ref)
+open_drawer(ref)   close_drawer(ref)
+place(receptacle_ref)
+report_found(object)</pre>
+      </div>
+      <div>
+        <h3>Metrics</h3>
+        <ul class="metrics prose" style="font-size:16px">
+          <li><b>TS</b> — traversal success (reach the target's location within 0.6&nbsp;m).</li>
+          <li><b>IOSS</b> — interactive object search success (retrieve &amp; report the target).</li>
+          <li><b>Skill execution success</b> — share of skill calls that run without error.</li>
+          <li><b>SPL</b> — success weighted by path length.</li>
+          <li><b>SPL-M</b> — SPL extended to include manipulation effort.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ====================== ROLLOUTS ====================== -->
+<section id="rollouts">
+  <div class="container">
+    <h2 class="sec">Rollouts</h2>
+
+    <p class="subhead">In simulation (IsaacSim)</p>
+    <div class="vrow">
+      <!-- Replace .placeholder with: <video class="media ratio-16-9" controls muted loop playsinline preload="metadata"
+           poster="assets/images/sim_01.jpg"><source src="assets/videos/sim_01.mp4" type="video/mp4"></video> -->
+      <figure><div class="media ratio-16-9 placeholder"><div class="ph-in"><div class="pi"><i class="fas fa-play"></i></div><code>assets/videos/sim_01.mp4</code></div></div><figcaption>Cross-room search</figcaption></figure>
+      <figure><div class="media ratio-16-9 placeholder"><div class="ph-in"><div class="pi"><i class="fas fa-play"></i></div><code>assets/videos/sim_02.mp4</code></div></div><figcaption>Open a receptacle</figcaption></figure>
+      <figure><div class="media ratio-16-9 placeholder"><div class="ph-in"><div class="pi"><i class="fas fa-play"></i></div><code>assets/videos/sim_03.mp4</code></div></div><figcaption>Clear an occluder</figcaption></figure>
+    </div>
+
+    <p class="subhead" style="margin-top:30px">On the physical Spot</p>
+    <div class="vrow">
+      <figure><div class="media ratio-16-9 placeholder"><div class="ph-in"><div class="pi"><i class="fas fa-play"></i></div><code>assets/videos/real_spot_01.mp4</code></div></div><figcaption>Hardware-abstraction transfer</figcaption></figure>
+      <figure><div class="media ratio-16-9 placeholder"><div class="ph-in"><div class="pi"><i class="fas fa-play"></i></div><code>assets/videos/real_spot_02.mp4</code></div></div><figcaption>Navigation</figcaption></figure>
+      <figure><div class="media ratio-16-9 placeholder"><div class="ph-in"><div class="pi"><i class="fas fa-play"></i></div><code>assets/videos/real_spot_03.mp4</code></div></div><figcaption>Manipulation</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ====================== RESULTS ====================== -->
+<section id="results">
+  <div class="container">
+    <h2 class="sec">Results</h2>
+    <div class="prose justify" style="margin-bottom:22px">
+      <p>We benchmark two vision–language models as high-level orchestrators over the skill library, under a
+      <em>known</em> and an <em>unknown</em> target-location condition (each over all 100 episodes). Best per column in bold.</p>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="2" style="vertical-align:bottom">Orchestrator</th>
+            <th colspan="4" class="grp">Known target location</th>
+            <th colspan="4" class="grp grp-l">Unknown target location</th>
+          </tr>
+          <tr>
+            <th>TS</th><th>IOSS</th><th>SPL</th><th>SPL-M</th>
+            <th class="grp-l">TS</th><th>IOSS</th><th>SPL</th><th>SPL-M</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Qwen3-VL-8B</td>
+            <td>13.0</td><td>8.0</td><td>5.22</td><td>3.47</td>
+            <td class="grp-l">2.0</td><td>2.0</td><td>0.39</td><td>0.11</td>
+          </tr>
+          <tr>
+            <td>Gemini Robotics ER-1.6</td>
+            <td class="best">15.0</td><td class="best">11.0</td><td class="best">6.08</td><td class="best">4.64</td>
+            <td class="best grp-l">7.0</td><td class="best">4.0</td><td class="best">0.55</td><td class="best">0.35</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="tbl-note">All values are percentages. Higher is better.</p>
+
+    <div class="prose justify" style="margin-top:24px">
+      <p><b>Interactive object search is far from solved.</b> Even given the ground-truth target location, the best
+      agent completes only 11% of episodes; with an unknown location this falls to 4%. Traversal is the dominant
+      bottleneck — 93 of 100 episodes fail before the final manipulation stage — and path-length-weighted scores
+      fall below 1%, showing that successful episodes are reached via highly inefficient trajectories.</p>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ====================== RELATED (cross-link) ====================== -->
+<section id="related">
+  <div class="container related">
+    <h2 class="sec">Powered by PhyGS</h2>
+    <p class="lead">Every ForageBench scene is generated by <strong>PhyGS</strong>, our framework for photorealistic,
+      physically grounded controllable scene generation in IsaacSim. The PhyGS code is available in beta.</p>
+    <div class="links">
+      <a class="lbtn" href="https://m-and-m-lab.github.io/PhyGS/"><i class="fas fa-arrow-up-right-from-square"></i> PhyGS project page</a>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<!-- ====================== BIBTEX ====================== -->
+<section id="bibtex">
+  <div class="container">
+    <h2 class="sec">BibTeX</h2>
+    <div class="codeblock">
+      <button class="copy" data-copy="bib">copy</button>
+      <pre id="bib">@misc{saha2026foragebench,
+  title  = {ForageBench: A Photorealistic, Physically Grounded
+            Benchmark for Interactive Object Search},
+  author = {Saha, Aparajito and Gan, Zhen Hao and Guo, Jinjia and
+            Skwirsk, Jacob and Acheampong, Jeremy and Arapin, Anton and
+            Ku, Chahyon and Hu, Yue and Fazeli, Nima and Bucher, Bernadette},
+  year   = {2026}
+}</pre>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p class="foot-links">
+      <a href="assets/papers/foragebench.pdf">Paper</a> ·
+      <span class="muted">Code (coming soon)</span> ·
+      <a href="https://m-and-m-lab.github.io/PhyGS/">PhyGS</a>
+    </p>
+    <p>Robotics Department, University of Michigan, Ann Arbor.</p>
+    <p>The design of this page follows the conventions of the
+      <a href="https://github.com/nerfies/nerfies.github.io" target="_blank" rel="noopener">Nerfies</a> project page.</p>
+  </div>
+</footer>
+
+<script src="assets/js/main.js"></script>
+</body>
+</html>
