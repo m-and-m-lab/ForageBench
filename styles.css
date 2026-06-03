@@ -1,0 +1,183 @@
+/* ============================================================
+   ForageBench & PhyGS — academic project page
+   Clean, centered, Nerfies-style. White background, restrained.
+   ============================================================ */
+
+:root{
+  --bg:       #ffffff;
+  --text:     #4a4a4a;
+  --head:     #2b2b2b;
+  --muted:    #8c8c8c;
+  --line:     #ededed;
+  --line-2:   #e0e0e0;
+  --soft-bg:  #fafafa;
+  --accent:   #1a7a4e;     /* brand: project name + decorative accents */
+  --accent-d: #135f3c;
+  --link:     #2a5db0;     /* hyperlinks: classic academic blue */
+  --link-h:   #1d4585;
+  --btn:      #363636;
+  --btn-h:    #1f1f1f;
+  --code-bg:  #f5f5f5;
+  --maxw:     1000px;
+  --prose:    820px;
+  --sans: "Lato", system-ui, -apple-system, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+
+*{ box-sizing:border-box; margin:0; padding:0; }
+html{ scroll-behavior:smooth; }
+body{
+  font-family:var(--sans); background:var(--bg); color:var(--text);
+  font-size:18px; line-height:1.65; -webkit-font-smoothing:antialiased;
+}
+img{ max-width:100%; display:block; }
+a{ color:var(--link); text-decoration:underline; text-underline-offset:2px; }
+a:hover{ color:var(--link-h); text-decoration:underline; }
+
+.container{ max-width:var(--maxw); margin:0 auto; padding:0 24px; }
+.prose{ max-width:var(--prose); margin-left:auto; margin-right:auto; }
+
+/* ===================== HERO ===================== */
+.hero{ padding:64px 0 30px; text-align:center; }
+.venue{ font-size:15px; letter-spacing:.04em; color:var(--accent); font-weight:700; margin-bottom:18px; text-transform:uppercase; }
+.title{ font-weight:900; color:var(--head); letter-spacing:-.015em; line-height:1.12;
+  font-size:clamp(30px,4.6vw,46px); max-width:24ch; margin:0 auto 6px; }
+.title .hl{ color:var(--accent); }
+.subtitle{ font-weight:400; color:var(--text); font-size:clamp(17px,2vw,21px); max-width:50ch; margin:10px auto 26px; }
+
+.authors{ font-size:18px; line-height:1.9; color:var(--head); margin-bottom:6px; }
+.authors a{ color:var(--link); font-weight:400; text-decoration:underline; text-underline-offset:2px; }
+.authors a:hover{ color:var(--link-h); text-decoration:underline; }
+.authors sup{ color:var(--text); font-weight:400; font-size:.72em; }
+.affil{ font-size:16px; color:var(--text); margin-bottom:4px; }
+.hero-gap{ height:1.6em; line-height:1.6em; }
+.affil sup{ font-size:.72em; }
+.note-eq{ font-size:14px; color:var(--muted); margin-bottom:24px; }
+
+/* buttons */
+.links{ display:flex; flex-wrap:wrap; gap:11px; justify-content:center; }
+.lbtn{ display:inline-flex; align-items:center; gap:9px; font-weight:700; font-size:15.5px; text-decoration:none;
+  background:var(--btn); color:#fff; padding:10px 20px; border-radius:999px; transition:background .15s, transform .15s; }
+.lbtn:hover{ background:var(--btn-h); color:#fff; text-decoration:none; transform:translateY(-1px); }
+.lbtn i{ font-size:16px; }
+.lbtn.disabled{ background:#b9b9b9; cursor:default; }
+.lbtn.disabled:hover{ background:#b9b9b9; transform:none; }
+.lbtn.disabled small{ font-weight:400; opacity:.9; margin-left:2px; }
+
+/* ===================== SECTIONS ===================== */
+section{ padding:42px 0; }
+.section-divider{ border:none; border-top:1px solid var(--line); max-width:var(--maxw); margin:0 auto; }
+h2.sec{ text-align:center; font-weight:900; color:var(--head); font-size:clamp(24px,3vw,32px);
+  letter-spacing:-.01em; margin-bottom:24px; }
+h3{ font-weight:700; color:var(--head); font-size:20px; margin-bottom:8px; }
+.prose p{ margin-bottom:16px; }
+.prose p:last-child{ margin-bottom:0; }
+.justify{ text-align:justify; }
+.center{ text-align:center; }
+em.term{ font-style:italic; color:var(--head); }
+strong{ color:var(--head); }
+
+/* ===================== FIGURES / MEDIA ===================== */
+figure{ margin:0 auto; }
+.fig-wide{ max-width:var(--maxw); }
+.media{ width:100%; border-radius:8px; border:1px solid var(--line-2); background:var(--soft-bg); display:block; object-fit:cover; }
+.ratio-16-9{ aspect-ratio:16/9; }
+.ratio-16-7{ aspect-ratio:16/7; }
+.ratio-3-4{ aspect-ratio:3/4; }
+.placeholder{ display:flex; align-items:center; justify-content:center;
+  background:repeating-linear-gradient(45deg,#fafafa 0 12px,#f3f3f3 12px 24px); border:1px dashed var(--line-2); }
+.placeholder.dark{ background:repeating-linear-gradient(45deg,#20262a 0 12px,#262d31 12px 24px); border-color:#333b40; }
+.ph-in{ text-align:center; color:var(--muted); padding:18px; }
+.ph-in .pi{ font-size:26px; color:#bdbdbd; margin-bottom:8px; }
+.placeholder.dark .ph-in{ color:#9aa6ab; } .placeholder.dark .pi{ color:#6f7c82; }
+.ph-in code,.cap code,.note code{ font-family:var(--mono); font-size:.82em; background:var(--code-bg); padding:1px 6px; border-radius:4px; color:#666; }
+.placeholder.dark code{ background:#171c1f; color:#9aa6ab; }
+.cap{ text-align:center; font-size:15px; color:var(--muted); margin-top:12px; line-height:1.5; }
+.cap b{ color:var(--head); }
+
+/* lead sentence under teaser */
+.lead-line{ max-width:880px; margin:22px auto 0; text-align:center; font-size:20px; color:var(--head); line-height:1.5; font-weight:400; }
+.lead-line b{ font-weight:700; }
+
+/* ===================== STAT STRIP ===================== */
+.stats{ display:flex; flex-wrap:wrap; justify-content:center; gap:14px; max-width:var(--prose); margin:24px auto 0; }
+.stat{ flex:1 1 160px; text-align:center; border:1px solid var(--line); border-radius:8px; padding:18px 12px; background:var(--bg); }
+.stat .v{ font-size:30px; font-weight:900; color:var(--head); line-height:1; }
+.stat .k{ font-size:13.5px; color:var(--muted); margin-top:7px; }
+
+/* ===================== VIDEO ROWS ===================== */
+.subhead{ text-align:center; font-weight:700; color:var(--head); font-size:18px; margin:6px 0 16px; }
+.vrow{ display:grid; grid-template-columns:repeat(3,1fr); gap:16px; max-width:var(--maxw); margin:0 auto; }
+.vrow.two{ grid-template-columns:repeat(2,1fr); max-width:860px; }
+.vrow figcaption{ text-align:center; font-size:14px; color:var(--muted); margin-top:9px; }
+
+/* ===================== DIFFICULTY TIERS ===================== */
+.tiers{ max-width:var(--prose); margin:0 auto; list-style:none; counter-reset:tier; }
+.tiers li{ position:relative; padding:14px 0 14px 52px; border-bottom:1px solid var(--line); font-size:17px; }
+.tiers li:last-child{ border-bottom:none; }
+.tiers li::before{ counter-increment:tier; content:counter(tier); position:absolute; left:0; top:13px;
+  width:32px; height:32px; border-radius:50%; background:var(--soft-bg); border:1px solid var(--line-2);
+  color:var(--accent); font-weight:900; font-size:15px; display:flex; align-items:center; justify-content:center; }
+
+/* ===================== FEATURE TRIO ===================== */
+.three-up{ display:grid; grid-template-columns:repeat(3,1fr); gap:18px; max-width:var(--maxw); margin:30px auto 0; }
+.feat{ border:1px solid var(--line); border-radius:8px; padding:20px; background:var(--bg); }
+.feat h3{ font-size:17px; margin-bottom:6px; }
+.feat p{ font-size:15px; color:var(--text); margin:0; }
+
+/* ===================== TWO COLUMN ===================== */
+.two-col{ display:grid; grid-template-columns:1fr 1fr; gap:32px; max-width:var(--maxw); margin:0 auto; }
+.metrics{ list-style:none; }
+.metrics li{ padding:7px 0; border-bottom:1px dashed var(--line); }
+.metrics li:last-child{ border-bottom:none; }
+
+/* ===================== TABLE ===================== */
+.grp{ text-align:center !important; border-bottom:1px solid var(--line-2); font-size:13px; }
+.grp-l{ border-left:1px solid var(--line-2); }
+.tbl-wrap{ overflow-x:auto; max-width:var(--maxw); margin:0 auto; border:1px solid var(--line); border-radius:8px; }
+table{ width:100%; border-collapse:collapse; font-size:16px; }
+thead th{ font-weight:700; color:var(--head); text-align:right; padding:13px 18px; border-bottom:2px solid var(--line-2); background:var(--soft-bg); white-space:nowrap; }
+thead th:first-child{ text-align:left; }
+tbody td{ padding:12px 18px; text-align:right; border-bottom:1px solid var(--line); }
+tbody td:first-child{ text-align:left; font-weight:700; color:var(--head); }
+tbody tr:last-child td{ border-bottom:none; }
+tbody tr.ours{ background:rgba(26,122,78,.06); }
+tbody tr.ours td:first-child{ color:var(--accent); }
+.best{ font-weight:900; color:var(--head); }
+.tbl-note{ text-align:center; font-size:14px; color:var(--muted); margin-top:12px; }
+
+/* ===================== CODE / BIBTEX ===================== */
+.codeblock{ position:relative; max-width:var(--maxw); margin:0 auto; }
+.codeblock + .codeblock{ margin-top:16px; }
+pre{ background:var(--code-bg); border:1px solid var(--line-2); border-radius:8px; padding:20px 22px;
+  font-family:var(--mono); font-size:13.5px; line-height:1.7; color:#444; overflow-x:auto; white-space:pre; }
+pre .cm{ color:#9aa39d; }
+.copy{ position:absolute; top:10px; right:10px; font-family:var(--mono); font-size:12px; cursor:pointer;
+  background:#fff; border:1px solid var(--line-2); border-radius:6px; padding:4px 11px; color:#666; }
+.copy:hover{ border-color:var(--accent); color:var(--accent); }
+.copy.done{ color:var(--accent); border-color:var(--accent); }
+
+/* ===================== FOOTER ===================== */
+footer{ padding:36px 0 56px; text-align:center; color:var(--muted); font-size:14px; line-height:1.7; }
+footer a{ color:var(--text); }
+.foot-links{ font-size:15px; margin-bottom:14px; }
+.foot-links a{ color:var(--link); font-weight:400; }
+.foot-links .muted{ color:var(--muted); }
+
+/* ===================== RESPONSIVE ===================== */
+@media (max-width:780px){
+  body{ font-size:17px; }
+  .vrow,.vrow.two{ grid-template-columns:1fr; }
+  .linkcards{ grid-template-columns:1fr; }
+  .three-up{ grid-template-columns:1fr; }
+  .two-col{ grid-template-columns:1fr; gap:24px; }
+  .stat{ flex-basis:42%; }
+}
+
+/* ===================== ADDITIONS (split sites) ===================== */
+.lbtn small{ font-weight:400; opacity:.9; margin-left:2px; }
+.grid-2{ display:grid; grid-template-columns:repeat(2,1fr); gap:18px; max-width:var(--maxw); margin:30px auto 0; }
+.related{ text-align:center; }
+.related .lead{ margin:0 auto 18px; }
+.related .links{ margin-top:0; }
+@media (max-width:780px){ .grid-2{ grid-template-columns:1fr; } }

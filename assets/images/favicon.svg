@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="15" fill="#1f5135"/>
+  <!-- leaf / forage glyph -->
+  <path d="M20 44c0-14 10-24 24-24 0 14-10 24-24 24z" fill="#fbfbf8"/>
+  <path d="M20 44C26 38 33 31 41 24" stroke="#1f5135" stroke-width="2.4" fill="none" stroke-linecap="round"/>
+  <!-- accent dot -->
+  <circle cx="44" cy="20" r="4.5" fill="#c2622e"/>
+</svg>
