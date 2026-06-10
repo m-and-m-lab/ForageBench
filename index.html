@@ -175,32 +175,35 @@ report_found(object)</pre>
 
     <p class="subhead">On the physical Spot (2x speed)</p>
     <p class="prose justify" style="max-width:var(--prose);margin:0 auto 18px;text-align:center;color:var(--muted)">
-      Gemini Robotics ER-1.6 driving a Boston Dynamics Spot with Arm across four interactive object-search
-      episodes, spanning a range of task difficulties with both successes and failures.</p>
+      Gemini Robotics ER-1.6 driving a Boston Dynamics Spot with Arm in a two-bedroom household. We ran three
+      sample experiments spanning the benchmark's easiest tier (separate room, perceivable) and its
+      second-hardest tier (separate room, not perceivable); the agent knew the target's location in every
+      episode. The white-pillow task was run twice — once with the door latched closed, and again with it left
+      open.</p>
     <div class="vrow two">
       <figure>
-        <div class="cap-head"><span class="badge success">Success</span><span class="cap-title">Search &amp; Grasp the Blue Bowl</span></div>
+        <div class="cap-head"><span class="badge success">Success</span><span class="cap-title">Search &amp; Grasp Blue Bowl</span></div>
         <video class="media ratio-16-9" controls muted loop playsinline preload="metadata">
           <source src="assets/videos/blue_bowl_success.mp4" type="video/mp4"></video>
-        <figcaption class="cap-desc">Starting in the living room, the robot navigated into the kitchen and approached the countertop, where the blue bowl was hidden behind a green box. It removed the box to expose the target, then executed a reach-and-grasp to retrieve the bowl.</figcaption>
+        <figcaption class="cap-desc">Separate room, perceivable. Starting in the living room — with the kitchen not visible — the robot navigated into the kitchen and approached the countertop, where the blue bowl was partially concealed behind a small green food container. It localized the target, removed the green box to gain manipulation access, then executed a reach-and-grasp to retrieve the bowl.</figcaption>
       </figure>
       <figure>
-        <div class="cap-head"><span class="badge success">Success</span><span class="cap-title">Search &amp; Grasp the White Pillow</span></div>
+        <div class="cap-head"><span class="badge success">Success</span><span class="cap-title">Search &amp; Grasp White Pillow <span style="color:#1a9850">(Door Open)</span></span></div>
         <video class="media ratio-16-9" controls muted loop playsinline preload="metadata">
           <source src="assets/videos/pillow_success.mp4" type="video/mp4"></video>
-        <figcaption class="cap-desc">Starting outside the bedroom with the door blocking access, the robot drove to the door and pushed it open with its manipulator arm. It then identified the white pillow, navigated to the bedside, and grasped the target.</figcaption>
+        <figcaption class="cap-desc">Separate room, perceivable. The door was left latched open — removing the need to turn the knob — but still mostly closed, blocking the view into the bedroom. The robot drove to the door, pushed it open with its manipulator arm, identified the white pillow, navigated to the bedside closest to it, and grasped the target.</figcaption>
       </figure>
       <figure>
-        <div class="cap-head"><span class="badge failure">Failure</span><span class="cap-title">Search &amp; Grasp the White Pillow</span></div>
+        <div class="cap-head"><span class="badge failure">Failure</span><span class="cap-title">Search &amp; Grasp Orange Ladle</span></div>
+        <video class="media ratio-16-9" controls muted loop playsinline preload="metadata">
+          <source src="assets/videos/orange_ladle_failure.mp4" type="video/mp4"></video>
+        <figcaption class="cap-desc">Separate room, not perceivable. Starting in the living room — with the kitchen not visible — the robot moved into the kitchen, located the drawer, and pulled it open with its arm, correctly identifying the orange ladle stored inside. The manipulation planner found a candidate grasp pose, but the constrained drawer layout kept the arm from reaching it, so the grasp failed after retries.</figcaption>
+      </figure>
+      <figure>
+        <div class="cap-head"><span class="badge failure">Failure</span><span class="cap-title">Search &amp; Grasp White Pillow <span style="color:#d73027">(Door Latched)</span></span></div>
         <video class="media ratio-16-9" controls muted loop playsinline preload="metadata">
           <source src="assets/videos/pillow_failure.mp4" type="video/mp4"></video>
-        <figcaption class="cap-desc">Here the door was latched and the knob had to be turned to unlock it. The robot reached the door and used its arm to rotate the knob, but the gripper slipped during the turn — the manipulator's design and motion were ill-suited to this knob, so it never gained access.</figcaption>
-      </figure>
-      <figure>
-        <div class="cap-head"><span class="badge failure">Failure</span><span class="cap-title">Search &amp; Grasp the Orange Spoon</span></div>
-        <video class="media ratio-16-9" controls muted loop playsinline preload="metadata">
-          <source src="assets/videos/orange_spoon_failure.mp4" type="video/mp4"></video>
-        <figcaption class="cap-desc">Starting in the living room, the robot moved to the kitchen, pulled open the drawer, and correctly identified the orange spoon inside. However, the arm lacked the clearance to get a clean grasp on the spoon within the drawer, so the retrieval failed.</figcaption>
+        <figcaption class="cap-desc">Separate room, perceivable. Here the door was latched closed, so the robot had to turn the knob and then push the door open. It reached the door and — after a retry — detected and grasped the knob, but could not exert enough force to keep contact while turning. The gripper slipped, so it never completed the traversal into the bedroom.</figcaption>
       </figure>
     </div>
   </div>
