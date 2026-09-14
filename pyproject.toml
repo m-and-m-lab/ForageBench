@@ -1,0 +1,35 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "foragebench"
+version = "0.1.0"
+description = "A photorealistic, physically grounded benchmark for interactive object search"
+readme = "README.md"
+requires-python = ">=3.11"
+authors = [{ name = "Mapping and Motion Lab, University of Michigan" }]
+# torch and Isaac Sim / IsaacLab come from the IsaacLab container; do not pin them here.
+dependencies = [
+    "numpy",
+    "pyyaml",
+]
+
+[project.optional-dependencies]
+qwen = ["transformers>=4.57", "accelerate"]
+gemini = ["google-genai"]
+dev = ["pytest", "ruff"]
+
+# Code runs from the repo root (`isaaclab.sh -p -m eval.run_benchmark`), so nothing is packaged;
+# `pip install -e ".[gemini,qwen]"` only installs dependencies.
+[tool.setuptools]
+packages = []
+py-modules = []
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"

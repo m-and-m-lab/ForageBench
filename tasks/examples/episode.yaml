@@ -1,0 +1,15 @@
+# Placeholder episode illustrating the schema. Values do not come from a released scene.
+episode_id: scene_000_tier1
+scene_id: scene_000
+tier: 1  # SEPARATE_ROOM_VISIBLE
+target:
+  description: a ceramic mug
+  prim_path: /World/scene_000/objects/ceramic_mug
+  position: [4.2, -1.5, 0.9]
+start_pose:
+  position: [0.0, 0.0, 0.0]
+  yaw: 0.0
+required_interactions:
+  - skill: open_door
+    reference: /World/scene_000/doors/kitchen_door
+optimal_path_length: 9.8

@@ -1,0 +1,4 @@
+type: qwen3_vl
+model: Qwen/Qwen3-VL-8B-Instruct
+affordance_prior: true
+max_new_tokens: 512
