@@ -1,0 +1,13 @@
+episodes_dir: tasks/episodes
+output_dir: outputs
+
+sim:
+  physics_hz: 60
+
+termination:
+  max_repeated_skill: 3
+  max_steps: null  # TODO: step budget used for the paper's baselines
+
+metrics:
+  traversal_tolerance_m: 0.6
+  spl_m_manipulation_cost: null  # TODO: per-action cost in SPL-M (paper supplement)

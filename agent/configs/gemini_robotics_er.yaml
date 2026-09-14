@@ -1,0 +1,4 @@
+type: gemini_robotics_er
+model: null  # TODO: Gemini Robotics ER-1.6 model ID
+affordance_prior: true
+max_new_tokens: 512
