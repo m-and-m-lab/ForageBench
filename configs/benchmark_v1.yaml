@@ -1,0 +1,15 @@
+# ForageBench v1 rules. A benchmark version is these rules, the episode manifest, the PhyGS version and
+# the backend pins together; changing any of them is a new benchmark version.
+benchmark: v1
+phygs_version: 0.3.1            # foragebench refuses to import against another phygs.__version__.
+manifest: foragebench/episodes/manifest_v0.yaml
+backends:
+  planner: curobo               # The arm planner (phygs/configs/environment.yaml planner.backend).
+  skills: collision_avoidance_planner
+  navigation: nav2
+# Applied over PhyGS's environment.yaml for every benchmark run (the rest is the framework's).
+environment:
+  stop_all_timeout_seconds: 3.0 # After the agent ends: cancel everything, keep the grip, wait this long [s].
+  end_settle_seconds: 1.0       # Then stand still this long [s] before the evaluator reads ground truth.
+  contact_record_n: 0.5         # Arm contact above this [N] is recorded; the evaluator counts it as conduct.
+clock: charged                  # Simulated time passes only while the agent waits (thinking is free).

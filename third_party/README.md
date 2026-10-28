@@ -1,17 +1,15 @@
 # third_party/
 
-External dependencies tracked as git submodules:
+| Path | Repository | Pinned to |
+| --- | --- | --- |
+| `phygs/` | [m-and-m-lab/PhyGS](https://github.com/m-and-m-lab/PhyGS) | the tag named in `configs/benchmark_v1.yaml` (`phygs_version`) |
 
-| Path | Repository | Used for |
-|---|---|---|
-| `ao-grasp/` | [m-and-m-lab/ao-grasp](https://github.com/m-and-m-lab/ao-grasp) | Grasps on articulated handles (AO-Grasp) and on objects (Contact-GraspNet) |
-| `curobo/` | [m-and-m-lab/curobo](https://github.com/m-and-m-lab/curobo) | Arm motion planning |
-
-To register them (maintainers, one-time):
+Register it once PhyGS `develop` is committed and tagged (maintainers):
 
 ```bash
-git submodule add https://github.com/m-and-m-lab/ao-grasp third_party/ao-grasp
-git submodule add https://github.com/m-and-m-lab/curobo third_party/curobo
+git submodule add -b develop https://github.com/m-and-m-lab/PhyGS.git third_party/phygs
+git -C third_party/phygs checkout v0.3.1
+git add .gitmodules third_party/phygs
 ```
 
-See [`docs/install/02_foragebench.md`](../docs/install/02_foragebench.md) for install steps.
+Never edit inside `third_party/phygs`; bump the pin in its own commit ("Bump PhyGS to vX.Y.Z") together with `phygs_version`.

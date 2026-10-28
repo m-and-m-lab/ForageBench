@@ -1,35 +1,36 @@
 [build-system]
-requires = ["setuptools>=61"]
+requires = ["setuptools>=68"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "foragebench"
-version = "0.1.0"
-description = "A photorealistic, physically grounded benchmark for interactive object search"
+version = "1.0.0.dev0"
+description = "ForageBench: a photorealistic, physically grounded benchmark for interactive object search, on the PhyGS simulation framework."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Mapping and Motion Lab, University of Michigan" }]
-# torch and Isaac Sim / IsaacLab come from the IsaacLab container; do not pin them here.
-dependencies = [
-    "numpy",
-    "pyyaml",
-]
+# PhyGS is the git submodule at third_party/phygs, installed by `make install`; it is the pin.
+# Isaac Sim, Isaac Lab, torch, numpy and yaml come from the Isaac Lab container.
+dependencies = []
 
-[project.optional-dependencies]
-qwen = ["transformers>=4.57", "accelerate"]
-gemini = ["google-genai"]
-dev = ["pytest", "ruff"]
+[project.urls]
+Homepage = "https://m-and-m-lab.github.io/ForageBench/"
+Repository = "https://github.com/m-and-m-lab/ForageBench"
 
-# Code runs from the repo root (`isaaclab.sh -p -m eval.run_benchmark`), so nothing is packaged;
-# `pip install -e ".[gemini,qwen]"` only installs dependencies.
-[tool.setuptools]
-packages = []
-py-modules = []
+[tool.setuptools.packages.find]
+include = ["foragebench", "foragebench.*"]
 
-[tool.pytest.ini_options]
-pythonpath = ["."]
-testpaths = ["tests"]
+[tool.setuptools.package-data]
+"foragebench" = ["tracks/*.yaml", "episodes/*.yaml", "episodes/**/*.yaml", "tasks/**/*.yaml"]
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py311"
+extend-exclude = ["third_party", "docs"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "C90", "SIM", "RET"]
+ignore = ["E402", "RET504", "RET505", "SIM102", "SIM103", "SIM108", "SIM117", "SIM118", "UP006", "UP018"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

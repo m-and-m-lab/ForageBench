@@ -1,0 +1,21 @@
+# ForageBench dev episode (manifest v0): retrieve the box from the table, next to one clutter box (as the file has it).
+schema: 3
+id: grid_table
+scene:
+  id: grid_storage
+  ground: true  # The file has no floor of its own.
+robot:
+  model: spot  # phygs/robots/spot; the base spawns at the robot's own height.
+  start: [-1.6, -0.2, 0.0]  # x, y, heading [m, m, rad]; the arm starts stowed.
+record_view: {eye: [2.8, -1.8, 3.0], target: [-0.1, 1.0, 0.3]}  # Third-person camera.
+task:
+  goal: retrieve
+  description: the small green box
+  target: target  # Scene name; agents see it only with object_targets.
+observations:
+  camera_roles: [planning]  # The robot's arm-planning cameras (Spot: frontleft, frontright, hand).
+  joint_state: true
+  imu: false
+budget:
+  sim_seconds: 420  # Also check_drawer_place's episode (open, pick, place, close: ~230 s).
+seed: 0

@@ -1,20 +1,9 @@
-# Python
-__pycache__/
-*.py[cod]
-*.egg-info/
-.venv/
-.pytest_cache/
-.ruff_cache/
-
-# Downloaded scenes and benchmark outputs
-scenes/data/
-outputs/
-logs/
-
-# VLM API keys
-.env
-
-# Editors / OS
-.vscode/
-.idea/
+CLAUDE.md
 .DS_Store
+**/__pycache__/
+**/.pytest_cache/
+**/*.egg-info/
+**/*.pyc
+**/*.log*
+output_check/*
+.env

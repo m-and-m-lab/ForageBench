@@ -1,0 +1,16 @@
+# ForageBench episode manifest v0 (2026-10-28): the three development episodes. The hidden test set
+# and the episode generator are not part of this release; v1 replaces this file. Every episode names
+# its scene release (id@version, from the scene dataset) and the archive's SHA-256.
+schema: 0
+sets:
+  dev:
+    - id: grid_table
+      file: dev/grid_table.yaml
+      scene: grid_storage        # A PhyGS fixture scene (phygs_robot_tests/scenes), no download.
+    - id: grid_drawer
+      file: dev/grid_drawer.yaml
+      scene: grid_storage
+    - id: house_drawer
+      file: dev/house_drawer.yaml
+      scene: bear_loop_house@1.1.0
+      archive_sha256: 06b18741dd5de54e78e3a96c8cf0851c6ba0851960fa85ef43f35ae42b7e6184

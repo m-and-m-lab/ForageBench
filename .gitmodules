@@ -1,0 +1,4 @@
+[submodule "third_party/phygs"]
+	path = third_party/phygs
+	url = https://github.com/m-and-m-lab/PhyGS.git
+	branch = develop

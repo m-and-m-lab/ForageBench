@@ -1,0 +1,24 @@
+# ForageBench dev episode (manifest v0): retrieve the box from the kitchen island's bottom drawer (closed at the start; the
+# file has the box there).
+schema: 3
+id: house_drawer
+scene:
+  id: bear_loop_house  # The scene dataset's release (phygs.scenes.fetch); 1.1.0 is the storage revision.
+  version: 1.1.0
+  name: house
+  ground: false  # The house has its own floors.
+robot:
+  model: spot  # phygs/robots/spot; the base spawns at the robot's own height.
+  start: [10.2, 6.0, 0.0]  # x, y, heading [m, m, rad]; the arm starts stowed.
+record_view: {eye: [13.5, 4.6, 2.3], target: [11.2, 6.3, 0.6]}  # Clear line of sight to the island.
+task:
+  goal: retrieve
+  description: the small cardboard box
+  target: kitchen_island_compartment_0_item_1  # Scene name; agents see it only with object_targets.
+observations:
+  camera_roles: [planning]  # The robot's arm-planning cameras (Spot: frontleft, frontright, hand).
+  joint_state: true
+  imu: false
+budget:
+  sim_seconds: 600
+seed: 0

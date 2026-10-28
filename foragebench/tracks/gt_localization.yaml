@@ -1,0 +1,4 @@
+# Track: gt_localization. The true pose only: the map comes from the cameras (Nav2's voxel layer), the
+# arm plans on depth, and the agent must find the target itself. The first track for model agents.
+actions: motion                 # navigation, manipulation and locomotion (drive to look around).
+grants: [gt_localization]

@@ -1,0 +1,5 @@
+# Track: privileged. Everything the framework can tell an agent: the true pose, the scene's known boxes
+# for navigation and arm planning, the target's position and the drawers' handles. Measures the skills
+# and the plan, not perception. The oracle's track.
+actions: skills                 # navigation and manipulation clients (a PhyGS action set or a list).
+grants: [gt_localization, known_map, object_targets, scene_hints]
