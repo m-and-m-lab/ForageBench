@@ -12,6 +12,7 @@ from pathlib import Path
 import yaml
 
 from foragebench.__main__ import main
+from foragebench.tasks.retrieve import rules_version
 
 RULES = Path(__file__).resolve().parents[1] / "configs" / "benchmark_v1.yaml"
 
@@ -32,7 +33,7 @@ def test_version_names_the_pinned_and_the_installed_phygs(capsys):
 def test_describe_resolves_a_run_without_the_simulator(capsys):
     assert main(["describe", "--episode", "dev/grid_table", "--track", "gt_localization", "--agent", "null"]) == 0
     lines = dict(line.split(None, 1) for line in capsys.readouterr().out.splitlines())
-    assert lines["episode"].startswith("dev/grid_table") and lines["rules"] == "version 1"
+    assert lines["episode"].startswith("dev/grid_table") and lines["rules"] == f"version {rules_version()}"
     assert "grants ['gt_localization']" in lines["track"] and lines["agent"] == "null"
 
 

@@ -5,18 +5,18 @@
 
 """Episodes and tracks.
 
-An episode file is a PhyGS episode spec without ``actions`` and ``grants``, plus a ``benchmark``
-block the framework never reads (the difficulty tier, the optimal path length and manipulations
-for SPL). A track (``tracks/<name>.yaml``) supplies ``actions`` and ``grants``: what the agent may
-do and what it is told. The manifest (``manifest_v0.yaml``) lists the episodes of each set with
-their scene release. Schema and tiers: ``README.md`` beside this file.
+An episode file is a PhyGS episode spec without ``actions`` and ``grants``, its ``task`` block only
+what the agent is told (``goal``, ``description``), plus two blocks the framework never reads:
+``answer`` (hidden: ``target``, the scene name of the object) and ``optimal`` (the SPL and SPL-M
+denominators). A track (``tracks/<name>.yaml``) supplies ``actions`` and ``grants``: what the agent
+may do and what it is told. The manifest (``manifest_v0.yaml``) lists the episodes of each set with
+their scene release. Schema: ``README.md`` beside this file.
 """
 
 from __future__ import annotations
 
 import hashlib
 from dataclasses import dataclass
-from enum import IntEnum
 from pathlib import Path
 
 import yaml
@@ -24,17 +24,9 @@ import yaml
 HERE = Path(__file__).resolve().parent
 TRACKS = HERE.parent / "tracks"
 TRACK_KEYS = {"actions", "grants"}
-BENCHMARK_KEYS = {"tier", "optimal_path_length_m", "optimal_manipulations"}
-
-
-class Tier(IntEnum):
-    """Difficulty, from the May beta's progression; the episode generator's parameters produce it."""
-
-    VISIBLE_SAME_ROOM = 0  # Below the paper's tiers: the target is in view from the start (dev only).
-    SEPARATE_ROOM_VISIBLE = 1  # Visible in another room; doors to open, no receptacles.
-    SAME_ROOM_NOT_PERCEIVABLE = 2  # Hidden in a receptacle in the starting room.
-    SEPARATE_ROOM_NOT_PERCEIVABLE = 3  # Hidden in a receptacle in another room.
-    SEPARATE_ROOM_OCCLUDED = 4  # As 3, and occluding objects must be moved.
+PUBLIC_TASK_KEYS = {"goal", "description"}  # What the agent is told.
+ANSWER_KEYS = {"target"}  # Hidden from the agent.
+OPTIMAL_KEYS = {"path_length_m", "manipulations"}
 
 
 @dataclass(frozen=True)
@@ -46,10 +38,11 @@ class Episode:
     path: Path
     track: str
     track_sha256: str
-    spec: dict
+    spec: dict  # The PhyGS spec; its task block is the public part with the answer's target added.
+    public_task: dict  # What the agent is told: goal and description.
+    answer: dict  # Hidden: the target's scene name.
     scene: str | None = None  # The manifest's scene release (``id@version``), when listed.
-    tier: Tier | None = None
-    optimal_path_length_m: float | None = None  # The SPL denominator; None until the generator states it.
+    optimal_path_length_m: float | None = None  # The SPL denominator; None until the episode states it.
     optimal_manipulations: int | None = None  # Manipulations on the optimal solution (SPL-M).
 
 
@@ -99,11 +92,17 @@ def load_episode(reference: str, *, track: str, manifest: Path) -> Episode:
         raise ValueError(f"{path}: an episode is a mapping.")
     if TRACK_KEYS & set(data):
         raise ValueError(f"{path}: actions and grants come from the track, not the episode file.")
-    benchmark = data.pop("benchmark", None) or {}
-    if not isinstance(benchmark, dict) or set(benchmark) - BENCHMARK_KEYS:
-        raise ValueError(f"{path}: the benchmark block holds {sorted(BENCHMARK_KEYS)}.")
+    public, answer, optimal = data.get("task"), data.pop("answer", None), data.pop("optimal", None) or {}
+    if not isinstance(public, dict) or set(public) != PUBLIC_TASK_KEYS:
+        raise ValueError(
+            f"{path}: the task block is what the agent is told, {sorted(PUBLIC_TASK_KEYS)}; the target is in answer."
+        )
+    if not isinstance(answer, dict) or set(answer) != ANSWER_KEYS or not answer["target"]:
+        raise ValueError(f"{path}: the answer block is {sorted(ANSWER_KEYS)}, given.")
+    if not isinstance(optimal, dict) or set(optimal) - OPTIMAL_KEYS:
+        raise ValueError(f"{path}: the optimal block holds {sorted(OPTIMAL_KEYS)}.")
     track_name, track_data, track_sha = load_track(track)
-    spec = dict(data, **track_data)
+    spec = dict(data, task=dict(public, **answer), **track_data)
     return Episode(
         episode_id,
         set_name,
@@ -111,8 +110,9 @@ def load_episode(reference: str, *, track: str, manifest: Path) -> Episode:
         track_name,
         track_sha,
         spec,
+        dict(public),
+        dict(answer),
         scene,
-        tier=None if benchmark.get("tier") is None else Tier(int(benchmark["tier"])),
-        optimal_path_length_m=benchmark.get("optimal_path_length_m"),
-        optimal_manipulations=benchmark.get("optimal_manipulations"),
+        optimal_path_length_m=optimal.get("path_length_m"),
+        optimal_manipulations=optimal.get("manipulations"),
     )

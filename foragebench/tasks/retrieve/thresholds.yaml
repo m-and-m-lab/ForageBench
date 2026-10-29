@@ -1,10 +1,16 @@
 # Retrieve evaluator thresholds (foragebench/tasks/retrieve/evaluator.py). Hashed into each report's
 # provenance and named by version in each result, so a result says which rules scored it. Change a
 # number: raise the version (results refuses to pool runs scored under different versions).
-version: 1
+version: 2
 held_lift_m: 0.05        # Held: the target is at least this far [m] above where it started ...
-held_reach_m: 0.35       # ... and its centre within this distance [m] of the wrist link.
+held_reach_m: 0.35       # ... its centre within this distance [m] of the wrist link ...
+jaw_contact_n: 0.5       # ... and every jaw presses on it with at least this force [N].
 stow_tolerance_rad: 0.05 # Stowed: every arm joint within this [rad] of the stow posture.
 upright_min_cos: 0.966   # Upright: the base's up axis within 15 degrees of vertical (cos 15°).
+# Reached: the base's centre within this planar distance [m] of the target. Measured from the oracle's
+# stances in the dev episodes (2026-10-29): Spot picks from 0.88 m (table) and 1.22-1.23 m (drawers).
+near_target_m: 1.5
+opened_m: 0.05           # The drawer the target started in counts as opened beyond this [m].
 drawer_closed_m: 0.03    # A drawer open by more than this [m] at the end counts as left open.
 contact_n: 0.5           # Unintended arm contact at or above this peak force [N] is a conduct finding.
+moved_m: 0.05            # Another body moved more than this [m] (against its drawer, if it started in one) is a finding.

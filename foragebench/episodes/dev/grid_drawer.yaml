@@ -12,10 +12,10 @@ robot:
 objects:
   target: {frame: corner_nightstand_tier_2_drawer, position: [0.0, -0.134, 0.0725]}
 record_view: {eye: [2.8, -1.8, 3.0], target: [-0.1, 1.0, 0.3]}  # Third-person camera.
+# What the agent is told (the session gets goal and description, nothing else).
 task:
   goal: retrieve
   description: the small green box
-  target: target  # Scene name; agents see it only with object_targets.
 observations:
   camera_roles: [planning]  # The robot's arm-planning cameras (Spot: frontleft, frontright, hand).
   joint_state: true
@@ -23,7 +23,9 @@ observations:
 budget:
   sim_seconds: 420
 seed: 0
-benchmark:  # The benchmark's facts (episodes/README.md); PhyGS does not read them.
-  tier: 2                     # Hidden in a closed drawer of the unit in front of the robot.
-  optimal_path_length_m: null
-  optimal_manipulations: 2    # Open the drawer, pick.
+# Hidden: the evaluator reads it, and the oracle through the privileged track's grants; never the agent.
+answer:
+  target: target  # The scene name of the object to retrieve.
+optimal:  # The SPL and SPL-M denominators.
+  path_length_m: null  # Until episodes state it (SPL is then not reported).
+  manipulations: 2  # Open the drawer, pick.

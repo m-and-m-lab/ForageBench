@@ -4,6 +4,17 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Changed (phase C, 2026-10-29)
+
+- **Episode files split what the agent is told from the answer.** `task` is `{goal, description}` only; the target's scene name moved to a hidden `answer: {target}` block; the `benchmark` block became `optimal: {path_length_m, manipulations}`. `Episode` gains `public_task` and `answer`. Migrate an episode file by moving `task.target` to `answer.target` and renaming the block. A benchmark version change.
+- **The retrieve evaluator samples the run** (PhyGS 0.6.0's `reset`/`update`/`result`). Held also needs every jaw pressing on the target; new `reached` (the base ends within 1.5 m of the target, or holds it), `progress` (reached, opened, touched, lifted, held) with `furthest`, the path length from the samples, and the conduct finding `objects_moved`. Thresholds version 2. A benchmark version change: results of version 1 and 2 are never pooled.
+- `eval/results.py` reports the reached rate and the progress funnel; `eval/run.py` takes the path length from the evaluator (the path meter and `during` are gone).
+- Pinned PhyGS 0.7.0: the evaluator's `reset`/`update`/`result` (0.6.0) and the per-run state log and `phygs replay` (0.7.0). A benchmark version change.
+
+### Removed (phase C, 2026-10-29)
+
+- Difficulty tiers (`foragebench.episodes.Tier`, the episodes' `tier`, the results' `tier`): no tiers until the episodes vary in difficulty.
+
 ### Added (phase B, 2026-10-29)
 
 - The `foragebench` command (`./isaaclab.sh -p -m foragebench <command>`, and a console script): `describe` (what a run would do, without the simulator; exit 1 if it would be refused), `run`, `suite`, `results <folder>`, `scenes list|fetch`, `version`. `load_agent` moved to `foragebench.agents`.

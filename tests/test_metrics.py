@@ -98,3 +98,23 @@ def test_an_unknown_status_is_an_error(tmp_path):
     write_runs(tmp_path, {"a": run(status="finished")})
     with pytest.raises(ValueError, match="unknown status"):
         summarize(tmp_path)
+
+
+def test_the_reached_rate_and_the_progress_funnel(tmp_path):
+    stages = ("reached", "opened", "touched", "lifted", "held")
+    full = dict.fromkeys(stages, True)
+    stopped = dict(full, touched=False, lifted=False, held=False)  # Reached and opened, then gave up.
+    in_the_open = dict(full, opened=None)  # A target on a table: nothing to open.
+    write_runs(
+        tmp_path,
+        {
+            "a": run(reached=True, progress=full),
+            "b": run(outcome="failure", reached=True, progress=stopped),
+            "c": run(reached=True, progress=in_the_open),
+            "d": run(outcome="failure", reached=False, progress=dict.fromkeys(stages, False) | {"opened": None}),
+        },
+    )
+    group = summarize(tmp_path)["groups"][0]
+    assert group["reached_rate"] == pytest.approx(0.75)
+    assert group["progress"]["opened"] == pytest.approx(1.0)  # Two runs with something to open, both opened it.
+    assert group["progress"]["held"] == pytest.approx(0.5) and group["progress"]["touched"] == pytest.approx(0.5)

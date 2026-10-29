@@ -5,7 +5,9 @@
 
 """Results: read ``result.json`` files and summarize them.
 
-Success rate (outcome ``success``), clean rate (successes with no conduct finding), Wilson 95%
+Success rate (outcome ``success``; the paper's IOSS), reached rate (the base ended near the target or
+holds it; the paper's TS), the progress funnel (the share of runs that got to each stage: reached,
+opened, touched, lifted, held), clean rate (successes with no conduct finding), Wilson 95%
 intervals; SPL and SPL-M (Batra et al. 2020; SPL-M charges each manipulation a path cost) over the
 runs whose episode states an optimal path length, else not reported (``None``); skill execution
 success (skill calls that ended ``succeeded``). Only runs with status ``completed`` are in the rates;
@@ -66,6 +68,19 @@ def wilson(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
     return (max(0.0, centre - half), min(1.0, centre + half))
 
 
+STAGES = ("reached", "opened", "touched", "lifted", "held")
+
+
+def progress_funnel(results: list[dict]) -> dict[str, float | None]:
+    """The share of runs that got to each progress stage; ``opened`` over the runs whose target
+    started in a drawer (None when none did)."""
+    funnel = {}
+    for stage in STAGES:
+        counted = [r for r in results if (r.get("progress") or {}).get(stage) is not None]
+        funnel[stage] = sum(bool(r["progress"][stage]) for r in counted) / len(counted) if counted else None
+    return funnel
+
+
 def unpinned(result: dict) -> bool:
     """Whether the run came from a dirty checkout of PhyGS (``code``) or ForageBench."""
     provenance = result.get("provenance", {})
@@ -119,6 +134,7 @@ def summarize(folder: Path, cost_per_manipulation_m: float = 1.0) -> dict:
     for (track, agent), items in sorted(groups.items()):
         successes = [r for r in items if r["outcome"] == "success"]
         clean = [r for r in successes if r.get("clean")]
+        reached = [r for r in items if r.get("reached")]
         episodes = {}
         for episode in sorted({r["episode"] for r in items}):
             mine = [r for r in items if r["episode"] == episode]
@@ -133,6 +149,8 @@ def summarize(folder: Path, cost_per_manipulation_m: float = 1.0) -> dict:
                 successes=len(successes),
                 success_rate=len(successes) / len(items),
                 success_ci95=wilson(len(successes), len(items)),
+                reached_rate=len(reached) / len(items),
+                progress=progress_funnel(items),
                 spl=spl(
                     [r["outcome"] == "success" for r in rated],
                     [r["optimal_path_length_m"] for r in rated],
@@ -141,7 +159,7 @@ def summarize(folder: Path, cost_per_manipulation_m: float = 1.0) -> dict:
                 spl_m=spl_m(items, cost_per_manipulation_m),
                 spl_runs=len(rated),
                 skill_execution_success=skill_execution_success(items),
-                mean_path_length_m=sum(r.get("path_length_m", 0.0) for r in items) / len(items),
+                mean_path_length_m=sum(r.get("path_length_m") or 0.0 for r in items) / len(items),
                 clean_successes=len(clean),
                 clean_rate=len(clean) / len(items),
                 mean_sim_seconds=sum(r["sim_seconds"] for r in items) / len(items),
@@ -159,20 +177,23 @@ def dumps(summary: dict) -> str:
 
 def table(summary: dict) -> str:
     """A plain-text table of the summary."""
-    head = ("track", "agent", "runs", "success", "95% CI", "clean", "SPL", "skills", "path m", "sim s", "unpinned")
+    head = ("track", "agent", "runs", "success", "95% CI", "reached", "clean", "SPL", "skills", "path m", "sim s")
     lines = [
-        f"{head[0]:<16} {head[1]:<10} {head[2]:>4} {head[3]:>8} {head[4]:>12} {head[5]:>6} {head[6]:>5}"
-        f" {head[7]:>6} {head[8]:>6} {head[9]:>6} {head[10]:>8}"
+        f"{head[0]:<16} {head[1]:<10} {head[2]:>4} {head[3]:>8} {head[4]:>12} {head[5]:>7} {head[6]:>6} {head[7]:>5}"
+        f" {head[8]:>6} {head[9]:>6} {head[10]:>6}  progress (reached opened touched lifted held)"
     ]
     for g in summary["groups"]:
         low, high = g["success_ci95"]
         spl_text = "-" if g["spl"] is None else f"{g['spl']:.2f}"
         skills = "-" if g["skill_execution_success"] is None else f"{g['skill_execution_success']:.2f}"
+        funnel = " ".join("-" if g["progress"][stage] is None else f"{g['progress'][stage]:.2f}" for stage in STAGES)
         lines.append(
             f"{g['track']:<16} {g['agent']:<10} {g['runs']:>4} {g['success_rate']:>8.2f}"
-            f" {low:>5.2f}-{high:<6.2f} {g['clean_rate']:>6.2f} {spl_text:>5} {skills:>6}"
-            f" {g['mean_path_length_m']:>6.1f} {g['mean_sim_seconds']:>6.0f} {g['unpinned']:>8}"
+            f" {low:>5.2f}-{high:<6.2f} {g['reached_rate']:>7.2f} {g['clean_rate']:>6.2f} {spl_text:>5} {skills:>6}"
+            f" {g['mean_path_length_m']:>6.1f} {g['mean_sim_seconds']:>6.0f}  {funnel}"
         )
+        if g["unpinned"]:
+            lines.append(f"  {g['unpinned']} of these runs came from a dirty checkout: do not publish them")
     for status, runs in summary["not_scored"].items():
         for item in runs:
             lines.append(f"not scored, {status}: {item['run']}: {item['reason']}")

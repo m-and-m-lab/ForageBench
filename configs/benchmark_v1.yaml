@@ -1,7 +1,7 @@
 # ForageBench v1 rules. A benchmark version is these rules, the episode manifest, the PhyGS version and
 # the backend pins together; changing any of them is a new benchmark version.
 benchmark: v1
-phygs_version: 0.5.0            # foragebench refuses to import against another phygs.__version__.
+phygs_version: 0.7.0            # foragebench refuses to import against another phygs.__version__.
 manifest: foragebench/episodes/manifest_v0.yaml
 backends:
   planner: curobo               # The arm planner (phygs/configs/environment.yaml planner.backend).
@@ -12,5 +12,6 @@ environment:
   stop_all_timeout_seconds: 3.0 # After the agent ends: cancel everything, keep the grip, wait this long [s].
   end_settle_seconds: 1.0       # Then stand still this long [s] before the evaluator reads ground truth.
   contact_record_n: 0.5         # Arm contact above this [N] is recorded; the evaluator counts it as conduct.
+  evaluation_period_seconds: 0.2  # The evaluator samples the run this often [s] (path length, progress).
 clock: charged                  # Simulated time passes only while the agent waits (thinking is free).
 spl_m_cost_per_manipulation_m: 1.0  # SPL-M: each manipulation counts as this much path [m] on both sides.

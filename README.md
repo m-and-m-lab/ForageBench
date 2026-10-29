@@ -25,7 +25,7 @@ Interactive semantic object search is the task of locating and retrieving a targ
 
 ForageBench is under active development at the [Mapping and Motion Lab](https://sites.google.com/umich.edu/mandmlab/), and this version of the repository is a beta release intended for early community testing and usage. Please file a GitHub issue detailing any bugs faced or major feature requests, and the team will respond to and resolve these issues as soon as possible.
 
-The `main` branch is the May 2026 beta. The `develop` branch is the benchmark described below, on PhyGS 0.5.0: the retrieve task with a physical evaluator, tracks, Nav2 navigation, cuRobo or MoveIt arm planning, 250 Hz physics. The episode set in this branch is the three development episodes (manifest v0); the 25-scene, 100-episode set and the hidden test split follow with manifest v1.
+The `main` branch is the May 2026 beta. The `develop` branch is the benchmark described below, on PhyGS 0.7.0: the retrieve task with a physical evaluator, tracks, Nav2 navigation, cuRobo or MoveIt arm planning, 250 Hz physics. The episode set in this branch is the three development episodes (manifest v0); the 25-scene, 100-episode set and the hidden test split follow with manifest v1.
 
 ## 🎯 What ForageBench measures
 
@@ -35,8 +35,8 @@ The `main` branch is the May 2026 beta. The `develop` branch is the benchmark de
 
 Each folder has its own README; start there.
 
-1. [`foragebench/tasks/`](foragebench/tasks/README.md) — the retrieve task: brief, evaluator, thresholds, and what success and conduct mean.
-2. [`foragebench/episodes/`](foragebench/episodes/README.md) — the episode files (scene release, start, target, budget, difficulty tier, optimal path), the schema, the tiers, the manifest of sets.
+1. [`foragebench/tasks/`](foragebench/tasks/README.md) — the retrieve task: brief, evaluator, thresholds, and what success, reached, progress and conduct mean.
+2. [`foragebench/episodes/`](foragebench/episodes/README.md) — the episode files (scene release, start, what the agent is told, the hidden answer, budget, optimal path), the schema, the manifest of sets.
 3. [`foragebench/tracks/`](foragebench/tracks/README.md) — what an agent may do and is told: `privileged`, `gt_localization`, `onboard` (planned).
 4. [`foragebench/agents/`](foragebench/agents/README.md) — how to write an agent; the reference agents `null`, `template`, `oracle`, `vlm` (the model harness with its skill list).
 5. [`foragebench/scenes/`](foragebench/scenes/README.md) — which scenes the episodes need and how to get them from the scene dataset.
@@ -103,14 +103,14 @@ def run(session):
 
 Start from `template.py`, read `oracle.py` for a complete retrieve, run yours with `--agent path/to/agent.py:run`, or plug a vision-language model into the `vlm` harness: [agents/README.md](foragebench/agents/README.md).
 
-## 📊 Baselines (dev set, 2026-10-28, PhyGS 0.3.1)
+## 📊 Baselines (dev set, 2026-10-29, PhyGS 0.6.0, evaluator rules version 2)
 
-| Agent | Track | Runs | Success | Clean | Skill exec. | Sim s | Note |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| oracle | privileged | 15 (3 episodes × 5 seeds) | 15/15 (Wilson 95%: 0.80–1.00) | 5/15 | 0.90 | 107 | The noise floor of the skills. `grid_table` is clean every time; the drawer episodes succeed every time but leave the drawer open and touch the unit (peak 5–119 N), because the plan does not close it. |
-| null | privileged | 2 | 0/2 | — | — | 1 | The floor. |
+| Agent | Track | Runs | Success | Reached | Clean | Skill exec. | Path m | Sim s | Note |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| oracle | privileged | 15 (3 episodes × 5 seeds) | 15/15 (Wilson 95%: 0.80–1.00) | 15/15 | 5/15 | 0.90 | 2.9 | 103 | The noise floor of the skills; every progress stage in every run, every jaw on the target at the end. `grid_table` is clean every time; the drawer episodes succeed every time but leave the drawer open (0.22–0.29 m) and touch the unit (peak 3–77 N), because the plan does not close it. No other object moved. |
+| null | gt_localization | 1 (house) | 0/1 | 0/1 | — | — | 0 | 1 | The floor: no progress stage reached. |
 
-Per episode (oracle): `grid_table` 5/5 in 62–73 s; `grid_drawer` 5/5 in 111–149 s; `house_drawer` 5/5 in 121–137 s. SPL is not reported for the dev episodes: no optimal path lengths until the episode generator states them. The model baselines (`vlm` with Qwen3-VL and Gemini Robotics-ER on `gt_localization`) are next ([PLANS.md](PLANS.md)).
+Per episode (oracle): `grid_table` 5/5 in 61–79 s; `grid_drawer` 5/5 in 109–134 s; `house_drawer` 5/5 in 112–127 s. SPL is not reported for the dev episodes: no optimal path lengths until episodes state them. The model baselines (`vlm` with Qwen3-VL and Gemini Robotics-ER on `gt_localization`) are next ([PLANS.md](PLANS.md)).
 
 ## 📤 Submitting results
 

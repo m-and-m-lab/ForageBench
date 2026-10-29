@@ -16,7 +16,9 @@ All run from the Isaac Lab root with `./isaaclab.sh -p -m foragebench <command>`
 `status`: `completed` (scored), `setup_error` (PhyGS's start check failed before the agent started:
 fix the episode or the scene) or `error` (the simulator or the World broke: rerun; such a result has
 only the run's identity and the `reason`). Then `outcome` (`success`, `failure`, `not_evaluated`),
-`reason`, `checks`, `conduct`, `clean`, `ended_by`, `rules` (the thresholds' version and hash), `tier`, `path_length_m` (integrated from ground truth), `manipulations`, `skill_calls`,
+`reason`, `checks`, `reached`, `progress` (reached, opened, touched, lifted, held) and `furthest`,
+`conduct`, `clean`, `ended_by`, `rules` (the thresholds' version and hash), `path_length_m` (the
+evaluator's, from ground truth sampled during the run), `manipulations`, `skill_calls`,
 `skill_successes`, `sim_seconds`, `wall_seconds`, `usage` (calls per client, privileged reads),
 `scene` (id, version, USD hash), and `provenance` (PhyGS version and commit, ForageBench commit,
 dirty flags, hashes of the rules, track, episode file, thresholds, robot USD and policy).
@@ -25,7 +27,9 @@ dirty flags, hashes of the rules, track, episode file, thresholds, robot USD and
 
 | Metric | Definition |
 | --- | --- |
-| success rate | runs with `outcome == success` over completed runs; Wilson 95% interval |
+| success rate | runs with `outcome == success` over completed runs; Wilson 95% interval (the paper's IOSS) |
+| reached rate | runs whose base ended within reach of the target or holds it (the paper's TS) |
+| progress | the share of runs that got to each stage: reached, opened (over runs whose target started in a drawer), touched, lifted, held |
 | clean rate | successes with no conduct finding, over completed runs |
 | SPL | Batra et al. 2020: mean of `S_i · l_i / max(p_i, l_i)` over episodes with a stated optimal path `l_i`; `null` otherwise |
 | SPL-M | SPL with each manipulation charged `spl_m_cost_per_manipulation_m` (1 m) on both sides |
