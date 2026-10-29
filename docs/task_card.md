@@ -4,6 +4,8 @@
 
 **Success.** All four, read from ground truth once after the robot has stopped and settled: the target is held (at least 5 cm off where it started and its centre within 0.35 m of the wrist), the arm is within 0.05 rad of its stow posture, the base's up axis is within 15° of vertical, and the episode ended by the agent's `finish` or return before the budget. A fall or an emergency stop ends the episode as a failure.
 
+**Also reported.** SPL and SPL-M (Batra et al. 2020; SPL-M charges each manipulation 1 m of path on both the optimal and the actual side) for episodes with a stated optimal path; skill execution success; path length; simulated time. **Difficulty tiers** (`foragebench.episodes.Tier`): 1 visible in another room, 2 hidden in a receptacle in the start room, 3 hidden in another room, 4 hidden and occluded; 0 marks a dev episode with the target in view.
+
 **Conduct, reported beside the outcome.** Unintended arm contacts at or above 0.5 N (the squeeze on a grasped body excluded), with the peak force; drawers the agent opened and left more than 3 cm open. `clean` means none.
 
 **Tracks.** `privileged` (true pose, known map, target position, drawer handles), `gt_localization` (true pose only), `onboard` (planned: nothing). Every privileged read is audited.

@@ -30,7 +30,18 @@ PHYGS_PUBLIC = (
     "phygs_robot_tests.routines",
     "phygs",  # The bare package, for its version only.
 )
-AGENT_ALLOWED = ("phygs.episodes.session", "phygs_robot_tests.routines", "phygs_robot_tests", "numpy", "yaml")
+AGENT_ALLOWED = (
+    "phygs.episodes.session",
+    "phygs_robot_tests.routines",
+    "phygs_robot_tests",
+    "numpy",
+    "yaml",
+    "foragebench.agents.model",
+    "torch",  # The model orchestrators' optional dependencies, imported lazily.
+    "transformers",
+    "PIL",
+    "google",
+)
 
 
 def imported(path: Path) -> set[str]:
@@ -59,7 +70,7 @@ def test_benchmark_code_imports_only_phygs_public_modules(path):
             assert path.name in ENTRY_POINTS, f"{path.relative_to(ROOT)} imports Isaac Sim ({name})"
 
 
-@pytest.mark.parametrize("path", sorted(AGENTS.glob("*.py")), ids=lambda p: p.name)
+@pytest.mark.parametrize("path", sorted(AGENTS.rglob("*.py")), ids=lambda p: str(p.relative_to(AGENTS)))
 def test_agents_import_only_the_session_and_the_routines(path):
     for name in imported(path):
         assert ok(name, AGENT_ALLOWED), f"{path.name} imports {name}"

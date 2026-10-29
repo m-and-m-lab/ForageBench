@@ -30,6 +30,8 @@ def test_every_manifest_episode_loads_on_every_track(key, track):
     assert spec.actions and spec.grants is not None
     task = load_task(spec.task)
     assert task.goal == "retrieve" and task.target
+    assert episode.tier is not None and episode.optimal_manipulations >= 1  # The file's benchmark block.
+    assert "benchmark" not in episode.spec  # Stripped before PhyGS sees the spec.
     if episode.scene and "@" in episode.scene:  # A scene release: the spec pins the same version.
         scene_id, version = episode.scene.split("@")
         assert (spec.scene.id, spec.scene.version) == (scene_id, version)
@@ -43,6 +45,9 @@ def test_tracks_supply_actions_and_grants_and_episode_files_never_do(tmp_path):
     bad = tmp_path / "ep.yaml"
     bad.write_text("schema: 3\nid: x\ngrants: [known_map]\n")
     with pytest.raises(ValueError, match="come from the track"):
+        load_episode(str(bad), track="privileged", manifest=MANIFEST)
+    bad.write_text("schema: 3\nid: x\nbenchmark: {difficulty: hard}\n")
+    with pytest.raises(ValueError, match="benchmark block"):
         load_episode(str(bad), track="privileged", manifest=MANIFEST)
 
 

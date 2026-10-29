@@ -22,3 +22,7 @@ observations:
 budget:
   sim_seconds: 600
 seed: 0
+benchmark:  # The benchmark's facts (episodes/README.md); PhyGS does not read them.
+  tier: 2                     # Hidden in the kitchen island's bottom drawer; the robot starts in the kitchen.
+  optimal_path_length_m: null
+  optimal_manipulations: 2

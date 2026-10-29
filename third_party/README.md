@@ -8,7 +8,7 @@ Register it once PhyGS `develop` is committed and tagged (maintainers):
 
 ```bash
 git submodule add -b develop https://github.com/m-and-m-lab/PhyGS.git third_party/phygs
-git -C third_party/phygs checkout v0.3.1
+git -C third_party/phygs checkout v0.3.2
 git add .gitmodules third_party/phygs
 ```
 

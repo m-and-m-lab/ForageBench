@@ -5,7 +5,7 @@
 
 """Run one ForageBench episode: an episode file, a track, an agent; write ``result.json``.
 
-    ./isaaclab.sh -p $FORAGEBENCH/foragebench/run.py --episode dev/grid_table --track privileged \\
+    ./isaaclab.sh -p $FORAGEBENCH/foragebench/eval/run.py --episode dev/grid_table --track privileged \\
         --agent null --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_grid_table_null
 
 ``--episode`` is an id of the manifest's sets (``dev/grid_table``) or the path of an episode file;
@@ -29,7 +29,7 @@ from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[1]  # The ForageBench checkout.
+ROOT = Path(__file__).resolve().parents[2]  # The ForageBench checkout.
 sys.path.insert(0, str(ROOT))  # Runs from a checkout without pip install (PhyGS: third_party/phygs or installed).
 if (ROOT / "third_party" / "phygs" / "phygs").is_dir():
     sys.path.insert(1, str(ROOT / "third_party" / "phygs"))
@@ -106,10 +106,42 @@ def settings_for_benchmark() -> Path:
     return path
 
 
+class PathLength:
+    """Planar distance the base travelled [m], integrated from ground truth every ``every`` ticks."""
+
+    def __init__(self, every: int = 25) -> None:
+        self.every, self.calls, self.metres, self._last = every, 0, 0.0, None
+
+    def __call__(self, environment) -> None:
+        self.calls += 1
+        if self.calls % self.every:
+            return
+        xy = environment.truth().base_pose()[:2, 3]
+        if self._last is not None:
+            self.metres += float(((xy - self._last) ** 2).sum() ** 0.5)
+        self._last = xy.copy()
+
+
+def skill_counts(commands: list[dict]) -> dict:
+    """Commands issued per client and how many ended ``succeeded``/``done``, from the report's audit."""
+    seen: dict[tuple[str, int], str] = {}
+    for item in commands:
+        client = item["call"].split(".")[0]
+        feedback = next(iter(item["feedback"].values())) if isinstance(item.get("feedback"), dict) else {}
+        seen[(client, item["command"])] = str(feedback.get("status", ""))
+    manipulations = sum(1 for (client, _) in seen if client == "manipulation")
+    return dict(
+        skill_calls=len(seen),
+        skill_successes=sum(status in ("succeeded", "done") for status in seen.values()),
+        manipulations=manipulations,
+    )
+
+
 def main() -> int:
     if prepare is not None:
         prepare(spec, robot)  # The oracle's routines learn the scene and the robot.
     settings = settings_for_benchmark()
+    path = PathLength()
     with Environment(
         spec,
         args.output,
@@ -120,8 +152,9 @@ def main() -> int:
         robot=robot,
         task=task,
     ) as environment:
-        report = environment.run(agent, name=agent_name)
+        report = environment.run(agent, name=agent_name, during=path)
     evaluation = report["evaluation"]
+    counts = skill_counts(report["commands"])
     result = dict(
         benchmark=rules["benchmark"],
         episode=episode.id,
@@ -136,6 +169,13 @@ def main() -> int:
         conduct=evaluation.get("conduct"),
         clean=evaluation.get("clean"),
         ended_by=report["ended_by"],
+        tier=None if episode.tier is None else int(episode.tier),
+        path_length_m=round(path.metres, 3),
+        optimal_path_length_m=episode.optimal_path_length_m,
+        manipulations=counts["manipulations"],
+        optimal_manipulations=episode.optimal_manipulations,
+        skill_calls=counts["skill_calls"],
+        skill_successes=counts["skill_successes"],
         sim_seconds=report["sim_seconds"],
         wall_seconds=report["wall_seconds"],
         usage=report["usage"],

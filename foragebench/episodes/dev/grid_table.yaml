@@ -19,3 +19,7 @@ observations:
 budget:
   sim_seconds: 420  # Also check_drawer_place's episode (open, pick, place, close: ~230 s).
 seed: 0
+benchmark:  # The benchmark's facts (episodes/README.md); PhyGS does not read them.
+  tier: 0                     # On the table, in view from the start.
+  optimal_path_length_m: null # Until the episode generator states it (SPL is then not reported).
+  optimal_manipulations: 1    # The pick.

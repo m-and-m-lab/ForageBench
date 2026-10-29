@@ -25,118 +25,85 @@ Interactive semantic object search is the task of locating and retrieving a targ
 
 ForageBench is under active development at the [Mapping and Motion Lab](https://sites.google.com/umich.edu/mandmlab/), and this version of the repository is a beta release intended for early community testing and usage. Please file a GitHub issue detailing any bugs faced or major feature requests, and the team will respond to and resolve these issues as soon as possible.
 
-The `main` branch is the May 2026 beta (VLM orchestrators over AO-Grasp and cuRobo skills, 60 Hz). The `develop` branch is the benchmark described below, on PhyGS 0.3: the retrieve task with a physical evaluator, tracks, Nav2 navigation, cuRobo or MoveIt arm planning, 250 Hz physics. The episode set in this branch is the three development episodes (manifest v0); the 25-scene, 100-episode set and the hidden test split follow with manifest v1.
+The `main` branch is the May 2026 beta. The `develop` branch is the benchmark described below, on PhyGS 0.3.2: the retrieve task with a physical evaluator, tracks, Nav2 navigation, cuRobo or MoveIt arm planning, 250 Hz physics. The episode set in this branch is the three development episodes (manifest v0); the 25-scene, 100-episode set and the hidden test split follow with manifest v1.
 
 ## 🎯 What ForageBench measures
 
-**The task: retrieve.** The agent is told what to find ("the small green box"), never where. It succeeds when, at the end of the episode, the target is in its hand (off its support and inside the jaws, measured, not assumed), the arm is stowed, the robot is upright and the budget was not exceeded. Nothing else counts as success: not standing next to the target, not a skill's "succeeded".
-
-**Reported beside success, never folded into it: conduct.** Unintended arm contacts above 0.5 N with their peak force, and drawers the agent opened and left open. A run is `clean` when it has none. Both come from ground truth, read once after the robot has stopped and settled; the thresholds are in [thresholds.yaml](foragebench/tasks/retrieve/thresholds.yaml) and their hash is in every result.
-
-**What is not claimed.** The dev episodes are not an unseen-house evaluation; photorealism is not measured; the oracle's success is the ceiling of the skills, not of any method. The [task card](docs/task_card.md) states the rest.
-
-## 🛤️ Tracks
-
-A track says what the agent may do and what it is told. The episode is the same on every track.
-
-| Track | Actions | Granted | Who it is for |
-| --- | --- | --- | --- |
-| `privileged` | navigation, manipulation skills | true pose, the scene's known boxes (map and arm planning), the target's position, the drawers' handles | The oracle: the skills' ceiling and the physics' noise floor |
-| `gt_localization` | navigation, manipulation and direct walking | the true pose only; the map comes from the cameras, the arm plans on depth, the agent finds the target | Model agents, first track |
-| `onboard` (planned) | the same | nothing; localization is the agent's | Full autonomy |
-
-Every use of a granted channel is audited and listed in the result.
-
-## 🏠 Episodes and difficulty
-
-An episode is a scene (a release of the scene dataset, by id and version), the robot's start, where objects start, the target and a time budget. The May beta's four difficulty tiers (visible in another room; hidden in the same room; hidden in another room; hidden and occluded) become the parameters of the episode generator: room, visibility, receptacle, occluders. Manifest v0 ([manifest_v0.yaml](foragebench/episodes/manifest_v0.yaml)) has three dev episodes:
-
-| Episode | Scene | What the robot has to do |
-| --- | --- | --- |
-| `dev/grid_table` | grid storage (a PhyGS fixture, no download) | Walk to a table, pick the box next to the clutter, stow |
-| `dev/grid_drawer` | grid storage | Find the box in a closed drawer, open it by the handle, pick, stow |
-| `dev/house_drawer` | `bear_loop_house` 1.1.0 (the scene dataset) | The same in a two-storey house: the kitchen island's bottom drawer |
-
-Every manifest entry names its scene release and the archive's SHA-256; every result records the USD's hash.
+**The task: retrieve.** The agent is told what to find ("the small green box"), never where. It succeeds when, at the end of the episode, the target is in its hand (measured, not assumed), the arm is stowed, the robot is upright and the budget was not exceeded. Nothing else counts: not standing next to the target, not a skill's "succeeded". **Conduct** is reported beside success, never folded into it: unintended arm contacts with their peak force, drawers left open; a run is `clean` when it has none. Also reported: SPL and SPL-M, skill execution success, the path walked, the time used. Everything is read from PhyGS's ground truth once, after the robot has stopped and settled. Details: [tasks/](foragebench/tasks/README.md), [eval/](foragebench/eval/README.md), the [task card](docs/task_card.md) for what is and is not claimed.
 
 ## 📦 What's in this repository
 
-1. `foragebench/tasks/` — the retrieve task: brief, evaluator, thresholds.
-2. `foragebench/tracks/`, `foragebench/episodes/` — the tracks and the episode files with their manifest.
-3. `foragebench/agents/` — reference agents: `null` (the floor), `template` (a tour of the session), `oracle` (PhyGS's scripted retrieve plan on the privileged track).
-4. `foragebench/run.py`, `suite.py`, `results.py` — one run, a set of runs, the summary with confidence intervals.
-5. `configs/benchmark_v1.yaml` — the rules: the PhyGS version, the backends, the end-of-episode settings.
-6. `tests/` — unit tests with a fake ground truth and the import guards; `docs/` — the task card, install, design and research pages.
-7. `third_party/phygs` — PhyGS, the framework, as a pinned submodule.
+Each folder has its own README; start there.
+
+1. [`foragebench/tasks/`](foragebench/tasks/README.md) — the retrieve task: brief, evaluator, thresholds, and what success and conduct mean.
+2. [`foragebench/episodes/`](foragebench/episodes/README.md) — the episode files (scene release, start, target, budget, difficulty tier, optimal path), the schema, the tiers, the manifest of sets.
+3. [`foragebench/tracks/`](foragebench/tracks/README.md) — what an agent may do and is told: `privileged`, `gt_localization`, `onboard` (planned).
+4. [`foragebench/agents/`](foragebench/agents/README.md) — how to write an agent; the reference agents `null`, `template`, `oracle`, `vlm` (the model harness with its skill list).
+5. [`foragebench/scenes/`](foragebench/scenes/README.md) — which scenes the episodes need and how to get them from the scene dataset.
+6. [`foragebench/eval/`](foragebench/eval/README.md) — `run.py`, `suite.py`, `results.py`; `result.json` and the metrics.
+7. `configs/benchmark_v1.yaml` — the rules: the PhyGS version pin, the backends, the end-of-episode settings, the SPL-M cost.
+8. `tests/` — unit tests with a fake ground truth and the import guards; `docs/` — task card, install guide, design record, research notes; `third_party/phygs` — PhyGS, pinned.
 
 ## 🛠️ Installation
 
 1. Build and enter PhyGS's Isaac Lab container and install ROS 2 Jazzy with Nav2 in it: [PhyGS installation](https://github.com/m-and-m-lab/PhyGS/blob/develop/README.md#%EF%B8%8F-installation). Nothing is repeated here.
-2. Clone ForageBench with its submodule into the Isaac Lab `scripts` folder and install both packages:
+2. Clone ForageBench with its submodules into the Isaac Lab `scripts` folder and install both packages:
 
 ```bash
 cd /workspace/isaaclab/scripts
-git clone --recursive -b develop https://github.com/m-and-m-lab/ForageBench.git
-cd ForageBench && make install          # PhyGS (the submodule) and ForageBench, editable, into Isaac Lab's Python
+git clone --recursive -b develop https://github.com/m-and-m-lab/ForageBench.git   # --recursive: PhyGS and its Spot meshes
+cd ForageBench && make install && make test
 ```
 
 3. In every shell: `source /opt/explore_ws/install/setup.bash`, `export ROS_DOMAIN_ID=48`, `export FORAGEBENCH=scripts/ForageBench` (relative to the Isaac Lab root, where every command below runs).
-
-The house episode needs its scene release once: `./isaaclab.sh -p -m phygs.scenes.fetch fetch --scene_id bear_loop_house --scene_version 1.1.0` (the dataset is private for now; `hf auth login` first). The grid episodes need no download. Details: [docs/install.md](docs/install.md).
+4. Scenes: `./isaaclab.sh -p -m foragebench.scenes list` says which releases the episodes need; `fetch` gets the missing ones (the dataset is private for now; `hf auth login` first). The grid episodes need no download. Details: [docs/install.md](docs/install.md).
 
 ## 🚀 Quick start
 
 ```bash
 cd /workspace/isaaclab
 # The floor: the null agent observes once and finishes. Prints the scored result; ~1 minute.
-./isaaclab.sh -p $FORAGEBENCH/foragebench/run.py --episode dev/grid_table --track privileged --agent null \
+./isaaclab.sh -p $FORAGEBENCH/foragebench/eval/run.py --episode dev/grid_table --track privileged --agent null \
   --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_grid_table_null
 
-# The ceiling: the oracle retrieves the box (success, clean; ~62 simulated seconds).
-./isaaclab.sh -p $FORAGEBENCH/foragebench/run.py --episode dev/grid_table --track privileged --agent oracle \
+# The ceiling: the oracle retrieves the box (success, clean; ~65 simulated seconds).
+./isaaclab.sh -p $FORAGEBENCH/foragebench/eval/run.py --episode dev/grid_table --track privileged --agent oracle \
   --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_grid_table_oracle
 
-# The dev set, three repeats each, one simulator process per run; prints the summary table.
-./isaaclab.sh -p $FORAGEBENCH/foragebench/suite.py --set dev --track privileged --agent oracle --repeats 3 \
+# The dev set, five repeats each, one simulator process per run; prints the summary table.
+./isaaclab.sh -p $FORAGEBENCH/foragebench/eval/suite.py --set dev --track privileged --agent oracle --repeats 5 \
   --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_dev_oracle
 ```
 
-Each run writes `result.json` (benchmark, episode, track, agent, outcome, reason, checks, conduct, `clean`, how the episode ended, time used, the scene release and every provenance hash) beside PhyGS's `report.json` (the full record: commands, contacts, grants used, narration) and `audit.jsonl` (every session call). A suite writes `summary.json`: success rate per track and agent with a Wilson 95% interval, clean rate, per-episode rates.
-
 ## ✍️ Writing an agent
 
-An agent is a function `run(session)`; the session is the only object it needs and the only thing it may import ([PhyGS's agent contract](https://github.com/m-and-m-lab/PhyGS/blob/develop/README.md#-the-agent-contract)):
+An agent is a function `run(session)`; the session is the only object it needs ([PhyGS's agent contract](https://github.com/m-and-m-lab/PhyGS/blob/develop/README.md#-the-agent-contract)):
 
 ```python
 def run(session):
     brief = session.task.description                        # "the small green box": what, never where.
     packet = session.observe()                              # Calibrated RGB-D, joints, localization (as the track grants).
-    goal = session.navigation.navigate_to(x=1.0, y=0.0, heading=0.0)
-    session.wait(goal)                                      # Simulated time passes only while the agent waits.
+    session.wait(session.navigation.navigate_to(x=1.0, y=0.0, heading=0.0))   # Time passes only while the agent waits.
     session.wait(session.manipulation.move_to_pose(pose))   # Planned by cuRobo or MoveIt; feedback says why it failed.
     session.wait(session.manipulation.close_gripper())
     session.wait(session.manipulation.stow())
     session.finish("done")                                  # Then the framework stops everything, keeps the grip, evaluates.
 ```
 
-Start from [template.py](foragebench/agents/template.py); read [oracle.py](foragebench/agents/oracle.py) for a complete retrieve on the privileged track (it only chooses PhyGS's robot-test routines, which is why it is a ceiling and not a method). Run yours with `--agent path/to/agent.py:run`. Bring your own skills: the `gt_localization` track exposes direct walking and arm joint commands through the same session. A model-agent harness (a VLM choosing skills) and a client package without Isaac imports are planned ([PLANS.md](PLANS.md)).
+Start from `template.py`, read `oracle.py` for a complete retrieve, run yours with `--agent path/to/agent.py:run`, or plug a vision-language model into the `vlm` harness: [agents/README.md](foragebench/agents/README.md).
 
-## ⚖️ Evaluation
+## 📊 Baselines (dev set, 2026-10-28, PhyGS 0.3.1)
 
-The evaluator is benchmark code that reads PhyGS's ground truth once, after the robot has stopped (every command cancelled, the grip kept, one second of settling). It never reads skill feedback. Outcome: held, stowed, upright, in time. Conduct: contacts and drawers left open. The rules and their hashes travel with every result: `configs/benchmark_v1.yaml` (PhyGS version, backends, end-of-episode settings), the track file, the episode file, the thresholds, the scene USD, the robot USD and policy, PhyGS's and ForageBench's commits. A result from an unpinned PhyGS (another version, or a dirty checkout) is marked in the summary.
+| Agent | Track | Runs | Success | Clean | Skill exec. | Sim s | Note |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| oracle | privileged | 15 (3 episodes × 5 seeds) | 15/15 (Wilson 95%: 0.80–1.00) | 5/15 | 0.90 | 107 | The noise floor of the skills. `grid_table` is clean every time; the drawer episodes succeed every time but leave the drawer open and touch the unit (peak 5–119 N), because the plan does not close it. |
+| null | privileged | 2 | 0/2 | — | — | 1 | The floor. |
 
-## 📊 Baselines
-
-| Agent | Track | Episodes | Success | Clean | Note |
-| --- | --- | --- | --- | --- | --- |
-| null | privileged | dev/grid_table | 0/1 | — | The floor; 2026-10-28 |
-| oracle | privileged | dev/grid_table | 1/1 | 1/1 | 62 s simulated; 2026-10-28 |
-
-The dev-set noise floor (oracle, three tracks, repeated) and the model baselines are the next entries ([PLANS.md](PLANS.md)).
+Per episode (oracle): `grid_table` 5/5 in 62–73 s; `grid_drawer` 5/5 in 111–149 s; `house_drawer` 5/5 in 121–137 s. SPL is not reported for the dev episodes: no optimal path lengths until the episode generator states them. The model baselines (`vlm` with Qwen3-VL and Gemini Robotics-ER on `gt_localization`) are next ([PLANS.md](PLANS.md)).
 
 ## 📤 Submitting results
 
-Send the suite's `summary.json` and the per-run `result.json` files, with a `provenance.foragebench.dirty` and `provenance.code.dirty` of `false` and `phygs_version` equal to the pinned one. We rerun a sample of episodes with your agent before listing a result.
+Send the suite's `summary.json` and the per-run `result.json` files, from clean checkouts (`unpinned` 0: both `provenance.foragebench.dirty` and `provenance.code.dirty` false) with `phygs_version` equal to the pinned one. We rerun a sample of episodes with your agent before listing a result.
 
 ## 📚 Documentation
 
