@@ -37,3 +37,6 @@ ignore = ["E402", "RET504", "RET505", "SIM102", "SIM103", "SIM108", "SIM117", "S
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# A shell with ROS 2 sourced adds ROS's pytest plugins, which do not import in Isaac Lab's Python
+# (launch_testing needs lark). The unit tests use none of them.
+addopts = "-p no:launch_testing -p no:launch_ros -p no:ament_lint -p no:ament_copyright -p no:ament_flake8 -p no:ament_pep257 -p no:ament_xmllint"
