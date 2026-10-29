@@ -58,7 +58,43 @@ def test_summary_reports_spl_only_for_rated_episodes(tmp_path):
     (tmp_path / "d").mkdir()  # A run that broke: no result.
     summary = summarize(tmp_path)
     group = summary["groups"][0]
-    assert summary["runs"] == 3 and summary["errors"] == ["d"]
+    assert summary["runs"] == 3 and summary["not_scored"]["error"] == [dict(run="d", reason="no result.json")]
     assert (
         group["spl_runs"] == 2 and group["spl"] == pytest.approx(0.5) and group["success_rate"] == pytest.approx(2 / 3)
     )
+
+
+def write_runs(folder, runs: dict) -> None:
+    import json
+
+    for name, result in runs.items():
+        (folder / name).mkdir()
+        (folder / name / "result.json").write_text(json.dumps(result))
+
+
+def test_only_completed_runs_are_in_the_rates_and_the_others_are_listed_with_their_reasons(tmp_path):
+    write_runs(
+        tmp_path,
+        {
+            "a": run(status="completed"),
+            "b": run(status="completed", outcome="failure"),
+            "c": run(status="setup_error", outcome="not_evaluated", reason="2 bodies still move"),
+            "d": run(status="error", outcome=None, reason="RuntimeError: the planner died"),
+        },
+    )
+    summary = summarize(tmp_path)
+    assert summary["runs"] == 2 and summary["groups"][0]["success_rate"] == pytest.approx(0.5)
+    assert summary["not_scored"]["setup_error"] == [dict(run="c", reason="2 bodies still move")]
+    assert summary["not_scored"]["error"] == [dict(run="d", reason="RuntimeError: the planner died")]
+
+
+def test_runs_scored_under_different_rules_versions_are_never_pooled(tmp_path):
+    write_runs(tmp_path, {"a": run(rules={"version": 1}), "b": run(rules={"version": 2})})
+    with pytest.raises(ValueError, match="rules versions"):
+        summarize(tmp_path)
+
+
+def test_an_unknown_status_is_an_error(tmp_path):
+    write_runs(tmp_path, {"a": run(status="finished")})
+    with pytest.raises(ValueError, match="unknown status"):
+        summarize(tmp_path)

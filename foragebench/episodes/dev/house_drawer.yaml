@@ -3,7 +3,7 @@
 schema: 3
 id: house_drawer
 scene:
-  id: bear_loop_house  # The scene dataset's release (phygs.scenes.fetch); 1.1.0 is the storage revision.
+  id: bear_loop_house  # The scene dataset's release (phygs.scene.fetch); 1.1.0 is the storage revision.
   version: 1.1.0
   name: house
   ground: false  # The house has its own floors.

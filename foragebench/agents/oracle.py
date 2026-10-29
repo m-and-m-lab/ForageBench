@@ -14,7 +14,7 @@ command calls :func:`prepare` before the episode so the routines know the scene 
 from __future__ import annotations
 
 import phygs_robot_tests.routines as routines
-from phygs.episodes.session import AgentFailed
+from phygs.session import AgentFailed
 from phygs_robot_tests.routines import arm, base, drawer
 
 

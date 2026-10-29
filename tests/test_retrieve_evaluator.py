@@ -9,10 +9,10 @@ from __future__ import annotations
 
 import numpy as np
 import pytest
-from phygs.episodes.task import NoTask, Task
+from phygs.world.task import NoTask, Task
 
 from foragebench.tasks import load_task
-from foragebench.tasks.retrieve import THRESHOLDS, RetrieveTask, load_thresholds
+from foragebench.tasks.retrieve import THRESHOLDS, RetrieveTask, load_thresholds, rules_version
 
 
 class FakeTruth:
@@ -56,6 +56,14 @@ def test_the_thresholds_file_is_complete_and_a_missing_key_is_an_error(tmp_path)
     partial.write_text("held_lift_m: 0.05\n")
     with pytest.raises(ValueError, match="lacks"):
         load_thresholds(partial)
+
+
+def test_a_result_names_the_rules_version_and_other_numbers_have_none():
+    assert evaluate(FakeTruth())["rules_version"] == rules_version() >= 1
+    numbers = dict(load_thresholds(), held_lift_m=0.01)
+    task = RetrieveTask("the box", "box", thresholds=numbers)
+    assert task.rules_version is None
+    assert task.result(FakeTruth(), "finish", [], {})["rules_version"] is None
 
 
 def test_success_needs_held_stowed_upright_and_in_time():

@@ -13,6 +13,9 @@ authors = [{ name = "Mapping and Motion Lab, University of Michigan" }]
 # Isaac Sim, Isaac Lab, torch, numpy and yaml come from the Isaac Lab container.
 dependencies = []
 
+[project.scripts]
+foragebench = "foragebench.__main__:main"
+
 [project.urls]
 Homepage = "https://m-and-m-lab.github.io/ForageBench/"
 Repository = "https://github.com/m-and-m-lab/ForageBench"

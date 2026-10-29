@@ -8,16 +8,23 @@
 Success rate (outcome ``success``), clean rate (successes with no conduct finding), Wilson 95%
 intervals; SPL and SPL-M (Batra et al. 2020; SPL-M charges each manipulation a path cost) over the
 runs whose episode states an optimal path length, else not reported (``None``); skill execution
-success (skill calls that ended ``succeeded``). Runs that broke (no ``result.json``) are counted as
-errors and are not in the rates: a benchmark result reports them.
+success (skill calls that ended ``succeeded``). Only runs with status ``completed`` are in the rates;
+``setup_error`` runs (PhyGS's start check failed, the agent never ran) and ``error`` runs (the
+simulator or the World broke, or no ``result.json``) are listed apart with their reasons: a benchmark
+result reports them. Runs scored under different rules versions are never pooled.
 """
 
 from __future__ import annotations
 
+import argparse
 import json
 import math
 from collections import defaultdict
 from pathlib import Path
+
+import yaml
+
+ROOT = Path(__file__).resolve().parents[2]  # The ForageBench checkout (installed editable).
 
 
 def spl(successes: list[bool], optimal: list[float], actual: list[float]) -> float | None:
@@ -65,25 +72,50 @@ def unpinned(result: dict) -> bool:
     return any(bool((provenance.get(key) or {}).get("dirty")) for key in ("code", "foragebench"))
 
 
+STATUSES = ("completed", "setup_error", "error")
+
+
 def load_results(folder: Path) -> tuple[list[dict], list[str]]:
-    """(results, names of run folders without a result)."""
+    """(results, names of run folders without a result). Each result gains ``run``, its folder's name;
+    a result from before statuses counts as ``completed``."""
     results, errors = [], []
     for run in sorted(p for p in folder.iterdir() if p.is_dir()):
         path = run / "result.json"
         if path.is_file():
-            results.append(json.loads(path.read_text()))
+            result = json.loads(path.read_text())
+            result.setdefault("status", "completed")
+            if result["status"] not in STATUSES:
+                raise ValueError(f"{path}: unknown status {result['status']!r}; expected one of {STATUSES}.")
+            results.append(dict(result, run=run.name))
         else:
             errors.append(run.name)
     return results, errors
 
 
+def rules_version(results: list[dict]) -> int | None:
+    """The one rules version the completed runs were scored under; refuses a mix."""
+    versions = {(r.get("rules") or {}).get("version") for r in results}
+    if len(versions) > 1:
+        raise ValueError(
+            f"These runs were scored under rules versions {sorted(versions, key=str)}; summarize each version apart."
+        )
+    return versions.pop() if versions else None
+
+
 def summarize(folder: Path, cost_per_manipulation_m: float = 1.0) -> dict:
-    """Rates per (track, agent) and per episode, from the runs under ``folder``."""
-    results, errors = load_results(Path(folder))
+    """Rates per (track, agent) and per episode over the completed runs under ``folder``; the runs
+    that cannot be scored, listed with their reasons."""
+    every, missing = load_results(Path(folder))
+    results = [r for r in every if r["status"] == "completed"]
+    not_scored = dict(
+        setup_error=[dict(run=r["run"], reason=r.get("reason")) for r in every if r["status"] == "setup_error"],
+        error=[dict(run=r["run"], reason=r.get("reason")) for r in every if r["status"] == "error"]
+        + [dict(run=name, reason="no result.json") for name in missing],
+    )
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for result in results:
         groups[(result["track"], result["agent"])].append(result)
-    out = dict(runs=len(results), errors=errors, groups=[])
+    out = dict(runs=len(results), rules_version=rules_version(results), not_scored=not_scored, groups=[])
     for (track, agent), items in sorted(groups.items()):
         successes = [r for r in items if r["outcome"] == "success"]
         clean = [r for r in successes if r.get("clean")]
@@ -141,6 +173,20 @@ def table(summary: dict) -> str:
             f" {low:>5.2f}-{high:<6.2f} {g['clean_rate']:>6.2f} {spl_text:>5} {skills:>6}"
             f" {g['mean_path_length_m']:>6.1f} {g['mean_sim_seconds']:>6.0f} {g['unpinned']:>8}"
         )
-    if summary["errors"]:
-        lines.append(f"errors (no result): {', '.join(summary['errors'])}")
+    for status, runs in summary["not_scored"].items():
+        for item in runs:
+            lines.append(f"not scored, {status}: {item['run']}: {item['reason']}")
     return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """``foragebench results <folder>``: the table of the runs under a folder; writes its ``summary.json``."""
+    parser = argparse.ArgumentParser(description="Summarize the result.json files under a folder.")
+    parser.add_argument("folder", type=Path, help="A suite's folder, or any folder of run folders")
+    parser.add_argument("--benchmark", type=Path, default=ROOT / "configs" / "benchmark_v1.yaml")
+    args = parser.parse_args(argv)
+    rules = yaml.safe_load(args.benchmark.read_text())
+    summary = summarize(args.folder, rules.get("spl_m_cost_per_manipulation_m", 1.0))
+    (args.folder / "summary.json").write_text(dumps(summary))
+    print(table(summary))
+    return 0

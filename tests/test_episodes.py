@@ -11,7 +11,7 @@ from pathlib import Path
 
 import pytest
 import yaml
-from phygs.episodes.spec import EpisodeSpec
+from phygs.world.spec import EpisodeSpec
 
 import foragebench
 from foragebench.episodes import TRACKS, load_episode, load_track, manifest_entries

@@ -1,0 +1,22 @@
+# The PhyGS pin: third_party/phygs must be the tagged PhyGS release that configs/benchmark_v1.yaml
+# names (tests/test_pin.py). The other unit tests need Isaac Lab's Python: `make test` in the container.
+name: PhyGS pin
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          submodules: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the pin
+        run: |
+          python -m pip install pytest pyyaml
+          python -m pytest tests/test_pin.py -q -p no:cacheprovider

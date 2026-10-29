@@ -5,6 +5,6 @@
 
 """The retrieve task: brief and evaluator (:mod:`.evaluator`), thresholds in ``thresholds.yaml``."""
 
-from foragebench.tasks.retrieve.evaluator import THRESHOLDS, RetrieveTask, load_thresholds
+from foragebench.tasks.retrieve.evaluator import THRESHOLDS, RetrieveTask, load_thresholds, rules_version
 
-__all__ = ["THRESHOLDS", "RetrieveTask", "load_thresholds"]
+__all__ = ["THRESHOLDS", "RetrieveTask", "load_thresholds", "rules_version"]

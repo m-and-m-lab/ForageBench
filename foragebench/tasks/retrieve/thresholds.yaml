@@ -1,5 +1,7 @@
-# Retrieve evaluator thresholds (src/phygs_robot_tests/tasks/retrieve.py). Hashed into each
-# report's provenance, so a result names the rules it was scored with.
+# Retrieve evaluator thresholds (foragebench/tasks/retrieve/evaluator.py). Hashed into each report's
+# provenance and named by version in each result, so a result says which rules scored it. Change a
+# number: raise the version (results refuses to pool runs scored under different versions).
+version: 1
 held_lift_m: 0.05        # Held: the target is at least this far [m] above where it started ...
 held_reach_m: 0.35       # ... and its centre within this distance [m] of the wrist link.
 stow_tolerance_rad: 0.05 # Stowed: every arm joint within this [rad] of the stow posture.

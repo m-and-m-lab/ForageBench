@@ -5,28 +5,28 @@
 
 """Run a set of episodes, each in its own simulator process, and summarize the results.
 
-    ./isaaclab.sh -p $FORAGEBENCH/foragebench/eval/suite.py --set dev --track privileged --agent oracle \\
+    ./isaaclab.sh -p -m foragebench suite --set dev --track privileged --agent oracle \\
         --repeats 3 --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_dev_oracle
 
-Every run is ``run.py`` with the same arguments; its folder and log land under ``--output``. The
+Every run is ``foragebench run`` with the same arguments; its folder and log land under ``--output``. The
 summary (``summary.json`` and a table) comes from :mod:`foragebench.eval.results`. A run that breaks
-counts as ``error`` and does not stop the suite.
+or fails its start check is listed apart from the rates and does not stop the suite.
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 from pathlib import Path
 
 import yaml
 
-ROOT = Path(__file__).resolve().parents[2]  # The ForageBench checkout.
-sys.path.insert(0, str(ROOT))
+from foragebench.episodes import manifest_entries
+from foragebench.eval import results
 
-from foragebench.episodes import manifest_entries  # noqa: E402
-from foragebench.eval import results  # noqa: E402
+ROOT = Path(__file__).resolve().parents[2]  # The ForageBench checkout (installed editable).
 
 
 def main() -> int:
@@ -55,7 +55,9 @@ def main() -> int:
             folder = args.output / label
             command = [
                 sys.executable,
-                str(ROOT / "foragebench" / "eval" / "run.py"),
+                "-m",
+                "foragebench",
+                "run",
                 "--episode",
                 key,
                 "--track",
@@ -74,8 +76,9 @@ def main() -> int:
             print(f"== {label}", flush=True)
             with (args.output / f"{label}.log").open("w") as log:
                 code = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT).returncode
-            status = "completed" if (folder / "result.json").exists() else f"error (exit {code})"
-            print(f"   {status}", flush=True)
+            path = folder / "result.json"
+            status = json.loads(path.read_text()).get("status", "completed") if path.exists() else "error"
+            print(f"   {status} (exit {code})", flush=True)
     summary = results.summarize(args.output, rules.get("spl_m_cost_per_manipulation_m", 1.0))
     (args.output / "summary.json").write_text(results.dumps(summary))
     print(results.table(summary))

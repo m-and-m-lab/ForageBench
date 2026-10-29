@@ -2,7 +2,7 @@
 
 [![Paper](https://img.shields.io/badge/paper-b31b1b.svg)](https://m-and-m-lab.github.io/ForageBench/assets/papers/foragebench.pdf)
 [![Website](https://img.shields.io/badge/project-page-1f6feb.svg)](https://m-and-m-lab.github.io/ForageBench/)
-[![IsaacSim](https://img.shields.io/badge/IsaacSim-5.1-76b900.svg)](https://developer.nvidia.com/isaac/sim)
+[![IsaacSim](https://img.shields.io/badge/IsaacSim-6.0-76b900.svg)](https://developer.nvidia.com/isaac/sim)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey.svg)](LICENSE)
 
 [Aparajito Saha](https://aparajitosaha.github.io)<sup>1</sup>, [Zhen Hao Gan](https://ganzh6880.github.io)<sup>1</sup>, Jinjia Guo<sup>1</sup>, Jacob Skwirsk<sup>1</sup>, Jeremy Acheampong<sup>1</sup>, [Anton Arapin](https://anton-arapin.github.io)<sup>1</sup>, [Chahyon Ku](https://chahyon-ku.github.io)<sup>1</sup>, [Yue Hu](https://phyllish.github.io)<sup>1</sup>, [Nima Fazeli](https://www.mmintlab.com/people/nima-fazeli/)<sup>1</sup>, [Bernadette Bucher](https://bucherb.github.io)<sup>1</sup>
@@ -25,7 +25,7 @@ Interactive semantic object search is the task of locating and retrieving a targ
 
 ForageBench is under active development at the [Mapping and Motion Lab](https://sites.google.com/umich.edu/mandmlab/), and this version of the repository is a beta release intended for early community testing and usage. Please file a GitHub issue detailing any bugs faced or major feature requests, and the team will respond to and resolve these issues as soon as possible.
 
-The `main` branch is the May 2026 beta. The `develop` branch is the benchmark described below, on PhyGS 0.3.2: the retrieve task with a physical evaluator, tracks, Nav2 navigation, cuRobo or MoveIt arm planning, 250 Hz physics. The episode set in this branch is the three development episodes (manifest v0); the 25-scene, 100-episode set and the hidden test split follow with manifest v1.
+The `main` branch is the May 2026 beta. The `develop` branch is the benchmark described below, on PhyGS 0.5.0: the retrieve task with a physical evaluator, tracks, Nav2 navigation, cuRobo or MoveIt arm planning, 250 Hz physics. The episode set in this branch is the three development episodes (manifest v0); the 25-scene, 100-episode set and the hidden test split follow with manifest v1.
 
 ## 🎯 What ForageBench measures
 
@@ -40,39 +40,50 @@ Each folder has its own README; start there.
 3. [`foragebench/tracks/`](foragebench/tracks/README.md) — what an agent may do and is told: `privileged`, `gt_localization`, `onboard` (planned).
 4. [`foragebench/agents/`](foragebench/agents/README.md) — how to write an agent; the reference agents `null`, `template`, `oracle`, `vlm` (the model harness with its skill list).
 5. [`foragebench/scenes/`](foragebench/scenes/README.md) — which scenes the episodes need and how to get them from the scene dataset.
-6. [`foragebench/eval/`](foragebench/eval/README.md) — `run.py`, `suite.py`, `results.py`; `result.json` and the metrics.
+6. [`foragebench/eval/`](foragebench/eval/README.md) — `run`, `suite`, `results`, `describe` (the `foragebench` command); `result.json` and the metrics.
 7. `configs/benchmark_v1.yaml` — the rules: the PhyGS version pin, the backends, the end-of-episode settings, the SPL-M cost.
-8. `tests/` — unit tests with a fake ground truth and the import guards; `docs/` — task card, install guide, design record, research notes; `third_party/phygs` — PhyGS, pinned.
+8. `tests/` — unit tests with a fake ground truth and the import guards; `docs/` — task card, install guide; `third_party/phygs` — PhyGS, pinned.
 
 ## 🛠️ Installation
 
-1. Build and enter PhyGS's Isaac Lab container and install ROS 2 Jazzy with Nav2 in it: [PhyGS installation](https://github.com/m-and-m-lab/PhyGS/blob/develop/README.md#%EF%B8%8F-installation). Nothing is repeated here.
+1. Build and enter PhyGS's container, Isaac Lab's base image with ROS 2 Jazzy, Nav2, explore_lite, MoveIt and cuRobo V2: [PhyGS docker/README.md](https://github.com/m-and-m-lab/PhyGS/blob/develop/docker/README.md). Nothing is repeated here.
 2. Clone ForageBench with its submodules into the Isaac Lab `scripts` folder and install both packages:
 
 ```bash
 cd /workspace/isaaclab/scripts
 git clone --recursive -b develop https://github.com/m-and-m-lab/ForageBench.git   # --recursive: PhyGS and its Spot meshes
-cd ForageBench && make install && make test
+cd ForageBench
+../../isaaclab.sh -p -m pip install -e third_party/phygs --no-deps   # PhyGS at the pinned release
+../../isaaclab.sh -p -m pip install -e . --no-deps                   # foragebench and the foragebench command
+../../isaaclab.sh -p -m pytest tests -q                              # unit tests, no simulator
 ```
 
 3. In every shell: `source /opt/explore_ws/install/setup.bash`, `export ROS_DOMAIN_ID=48`, `export FORAGEBENCH=scripts/ForageBench` (relative to the Isaac Lab root, where every command below runs).
-4. Scenes: `./isaaclab.sh -p -m foragebench.scenes list` says which releases the episodes need; `fetch` gets the missing ones (the dataset is private for now; `hf auth login` first). The grid episodes need no download. Details: [docs/install.md](docs/install.md).
+4. Scenes: `./isaaclab.sh -p -m foragebench scenes list` says which releases the episodes need; `fetch` gets the missing ones (the dataset is private for now; `hf auth login` first). The grid episodes need no download. Details: [docs/install.md](docs/install.md).
 
 ## 🚀 Quick start
 
+Every command is `foragebench <command>`, run with Isaac Lab's Python (`./isaaclab.sh -p -m foragebench --help`):
+
 ```bash
 cd /workspace/isaaclab
+# What a run would do, without the simulator: rules, PhyGS pin, scene, track, agent. Exit 1 if it would be refused.
+./isaaclab.sh -p -m foragebench describe --episode dev/grid_table --track privileged --agent oracle
+
 # The floor: the null agent observes once and finishes. Prints the scored result; ~1 minute.
-./isaaclab.sh -p $FORAGEBENCH/foragebench/eval/run.py --episode dev/grid_table --track privileged --agent null \
+./isaaclab.sh -p -m foragebench run --episode dev/grid_table --track privileged --agent null \
   --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_grid_table_null
 
 # The ceiling: the oracle retrieves the box (success, clean; ~65 simulated seconds).
-./isaaclab.sh -p $FORAGEBENCH/foragebench/eval/run.py --episode dev/grid_table --track privileged --agent oracle \
+./isaaclab.sh -p -m foragebench run --episode dev/grid_table --track privileged --agent oracle \
   --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_grid_table_oracle
 
 # The dev set, five repeats each, one simulator process per run; prints the summary table.
-./isaaclab.sh -p $FORAGEBENCH/foragebench/eval/suite.py --set dev --track privileged --agent oracle --repeats 5 \
+./isaaclab.sh -p -m foragebench suite --set dev --track privileged --agent oracle --repeats 5 \
   --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_dev_oracle
+
+# The table again, for any folder of runs.
+./isaaclab.sh -p -m foragebench results $FORAGEBENCH/output_check/<folder>
 ```
 
 ## ✍️ Writing an agent
@@ -107,7 +118,7 @@ Send the suite's `summary.json` and the per-run `result.json` files, from clean 
 
 ## 📚 Documentation
 
-[docs/README.md](docs/README.md): the [task card](docs/task_card.md), [installation](docs/install.md), the design record (framework/benchmark split, benchmark audit, positioning against 40+ benchmarks) and the research notes behind them. Changes: [CHANGELOG.md](CHANGELOG.md). Status and plans: [PLANS.md](PLANS.md). Rules for contributors and coding agents, including the submodule rules: [AGENTS.md](AGENTS.md).
+[docs/README.md](docs/README.md): the [task card](docs/task_card.md), [installation](docs/install.md). Changes: [CHANGELOG.md](CHANGELOG.md). Status and plans: [PLANS.md](PLANS.md). Rules for contributors and coding agents, including the submodule rules: [AGENTS.md](AGENTS.md).
 
 ## 📝 Citation
 

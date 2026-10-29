@@ -9,7 +9,7 @@
 sequence, for smoke runs), ``qwen3_vl`` or ``gemini_robotics_er``. ``FORAGEBENCH_MODEL`` overrides
 the model name; ``FORAGEBENCH_MAX_CALLS`` the call budget (default 40).
 
-    ./isaaclab.sh -p $FORAGEBENCH/foragebench/eval/run.py --episode dev/grid_table --track gt_localization \\
+    ./isaaclab.sh -p -m foragebench run --episode dev/grid_table --track gt_localization \\
         --agent vlm --output ...
 """
 

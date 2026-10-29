@@ -8,7 +8,7 @@ and edit run(). Skills (``navigation``, ``manipulation``) walk to a point and st
 tier adds ``locomotion`` (a body velocity), the joints tier ``arm`` (arm joint angles).
 
 Run it with:
-    ./isaaclab.sh -p $FORAGEBENCH/foragebench/eval/run.py --episode dev/grid_table --track privileged \
+    ./isaaclab.sh -p -m foragebench run --episode dev/grid_table --track privileged \
         --agent template --output <folder>
 """
 

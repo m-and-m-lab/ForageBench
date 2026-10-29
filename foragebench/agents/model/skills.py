@@ -17,7 +17,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
-from phygs.episodes.session import PointTarget
+from phygs.session import PointTarget
 
 
 @dataclass(frozen=True)

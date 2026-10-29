@@ -4,11 +4,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """The scenes the benchmark uses: which releases the manifest needs, whether each is present, and
-fetching the missing ones through PhyGS (``phygs.scenes.fetch``). PhyGS owns the registry and the
+fetching the missing ones through PhyGS (``phygs.scene.fetch``). PhyGS owns the registry and the
 dataset; this module only asks for what the episodes name.
 
-    ./isaaclab.sh -p -m foragebench.scenes list
-    ./isaaclab.sh -p -m foragebench.scenes fetch
+    ./isaaclab.sh -p -m foragebench scenes list
+    ./isaaclab.sh -p -m foragebench scenes fetch
 """
 
 from __future__ import annotations
@@ -20,7 +20,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
-from phygs.episodes.scenes import scene_file
+from phygs.scene.registry import scene_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -61,7 +61,7 @@ def fetch(need: SceneNeed) -> int:
     command = [
         sys.executable,
         "-m",
-        "phygs.scenes.fetch",
+        "phygs.scene.fetch",
         "fetch",
         "--scene_id",
         need.id,

@@ -5,8 +5,8 @@ What is asked and how it is scored. One task today: **retrieve**.
 | Path | Contents |
 | --- | --- |
 | `retrieve/evaluator.py` | `RetrieveTask`: the public brief, the privileged target name, and `result()`, the evaluator PhyGS calls once after the robot has stopped and settled. |
-| `retrieve/thresholds.yaml` | The numbers behind every check; its hash is in every result (`evaluator_thresholds`). |
-| `__init__.py` | `load_task(block)`: an episode's `task` block to the task object PhyGS takes (`phygs.episodes.task.Task`). |
+| `retrieve/thresholds.yaml` | The numbers behind every check and their `version`; every result names the version (`rules.version`) and the file's hash (`evaluator_thresholds`). Change a number: raise the version. |
+| `__init__.py` | `load_task(block)`: an episode's `task` block to the task object PhyGS takes (`phygs.world.task.Task`). |
 
 ## Success
 

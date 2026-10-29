@@ -20,18 +20,15 @@ AGENTS = PACKAGE / "agents"
 ENTRY_POINTS = {"run.py", "suite.py"}
 # What benchmark code may take from PhyGS: the public framework modules.
 PHYGS_PUBLIC = (
-    "phygs.episodes.session",
-    "phygs.episodes.spec",
-    "phygs.episodes.task",
-    "phygs.episodes.environment",
-    "phygs.episodes.provenance",
-    "phygs.episodes.scenes",
+    "phygs.session",  # What agents get.
+    "phygs.world",  # What a benchmark drives (PhyGS docs/world.md).
+    "phygs.scene.registry",  # Scenes by id.
     "phygs.robots.description",
     "phygs_robot_tests.routines",
     "phygs",  # The bare package, for its version only.
 )
 AGENT_ALLOWED = (
-    "phygs.episodes.session",
+    "phygs.session",
     "phygs_robot_tests.routines",
     "phygs_robot_tests",
     "numpy",

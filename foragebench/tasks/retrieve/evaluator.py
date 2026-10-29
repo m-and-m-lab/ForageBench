@@ -6,10 +6,10 @@
 """The retrieve task: its brief, and the evaluator that scores an episode from ground truth.
 
 The benchmark builds it from an episode's task block (:func:`foragebench.tasks.load_task`)
-and gives it to the Environment, which stops the robot at the end (every command cancelled, the
+and gives it to the World, which stops the robot at the end (every command cancelled, the
 grip kept), settles, and calls :meth:`RetrieveTask.result` once with ground truth. The agent never
-holds it. The thresholds are in ``retrieve.yaml`` beside this file and are hashed into the
-report's provenance.
+holds it. The thresholds are in ``thresholds.yaml`` beside this file, with a version every result
+names; the file is hashed into the report's provenance.
 
 The result has two parts that are never merged. The **outcome** says whether the task was done:
 the target is in the hand, the arm is stowed, the robot is upright and the episode ended within
@@ -28,12 +28,12 @@ import numpy as np
 import yaml
 
 THRESHOLDS = Path(__file__).with_name("thresholds.yaml")
-# Why an episode ended, as the Environment reports it; only these count as within the budget.
+# Why an episode ended, as the World reports it; only these count as within the budget.
 ENDED_IN_TIME = ("finish", "agent_returned", "agent_stopped")
 
 
 class GroundTruth(Protocol):
-    """What the evaluator reads; the Environment's ``Truth`` provides it (robot tests use the same)."""
+    """What the evaluator reads; the World's ``Truth`` provides it (robot tests use the same)."""
 
     def object_pose(self, name: str) -> np.ndarray: ...
     def held(self, name: str, *, lift_m: float, reach_m: float) -> bool: ...
@@ -52,6 +52,14 @@ def load_thresholds(path: Path = THRESHOLDS) -> dict:
     return {key: float(data[key]) for key in required}
 
 
+def rules_version(path: Path = THRESHOLDS) -> int:
+    """The thresholds file's ``version``: raised whenever a number changes."""
+    version = yaml.safe_load(path.read_text()).get("version")
+    if not isinstance(version, int):
+        raise ValueError(f"{path} needs an integer version.")
+    return version
+
+
 class RetrieveTask:
     """Retrieve one object: ``description`` is public (what the agent is told), ``target`` is the
     object's scene name (privileged). Scores the episode with :meth:`result`."""
@@ -63,6 +71,8 @@ class RetrieveTask:
             raise ValueError("A retrieve task needs a description and the target's name.")
         self.description, self.target = description, target
         self.thresholds = load_thresholds() if thresholds is None else dict(thresholds)
+        # The file's rules carry its version; other numbers (a test's) have none.
+        self.rules_version = rules_version() if self.thresholds == load_thresholds() else None
 
     def brief(self) -> str:
         """What a person is told on the robot UI's Start card."""
@@ -70,7 +80,7 @@ class RetrieveTask:
 
     def provenance(self) -> dict:
         """The hash of the thresholds in force (the file's when they are its, else the values')."""
-        if self.thresholds == load_thresholds():
+        if self.rules_version is not None:
             return {"evaluator_thresholds": hashlib.sha256(THRESHOLDS.read_bytes()).hexdigest()}
         text = yaml.safe_dump(self.thresholds, sort_keys=True).encode()
         return {"evaluator_thresholds": hashlib.sha256(text).hexdigest()}
@@ -118,4 +128,5 @@ class RetrieveTask:
             conduct=conduct,
             clean=not unintended and not left_open,
             thresholds=dict(t),
+            rules_version=self.rules_version,
         )

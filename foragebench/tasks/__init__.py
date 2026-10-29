@@ -4,11 +4,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """ForageBench tasks. :func:`load_task` turns an episode's ``task`` block into the task object PhyGS
-takes (:class:`phygs.episodes.task.Task`): today ``retrieve`` only."""
+takes (:class:`phygs.world.task.Task`): today ``retrieve`` only."""
 
 from __future__ import annotations
 
-from phygs.episodes.task import NoTask, Task
+from phygs.world.task import NoTask, Task
 
 from foragebench.tasks.retrieve import RetrieveTask
 
