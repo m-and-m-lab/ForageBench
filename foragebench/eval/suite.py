@@ -8,7 +8,9 @@
     ./isaaclab.sh -p -m foragebench suite --set dev --track privileged --agent oracle \\
         --repeats 3 --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_dev_oracle
 
-Every run is ``foragebench run`` with the same arguments; its folder and log land under ``--output``. The
+Each episode is one ``foragebench run`` process with its repeats (``--repeats``; PhyGS resets the
+scene between them, so only the first pays Isaac Sim's start-up); ``--fresh`` starts a process per
+run instead. Folders and logs land under ``--output``. The
 summary (``summary.json`` and a table) comes from :mod:`foragebench.eval.results`. A run that breaks
 or fails its start check is listed apart from the rates and does not stop the suite.
 """
@@ -35,6 +37,7 @@ def main() -> int:
     parser.add_argument("--track", default="privileged")
     parser.add_argument("--agent", required=True)
     parser.add_argument("--repeats", type=int, default=1, help="Runs per episode (seeds 0..repeats-1)")
+    parser.add_argument("--fresh", action="store_true", help="One simulator process per run, not per episode")
     parser.add_argument("--only", nargs="*", default=None, help="Episode ids of the set to run")
     parser.add_argument("--benchmark", type=Path, default=ROOT / "configs" / "benchmark_v1.yaml")
     parser.add_argument("--output", type=Path, required=True, help="A fresh folder for the suite")
@@ -49,36 +52,42 @@ def main() -> int:
     if not episodes:
         parser.error(f"No episodes in set {args.set!r}; the manifest has {sorted(entries)}")
     args.output.mkdir(parents=True, exist_ok=False)
-    for key in episodes:
-        for seed in range(args.repeats):
-            label = f"{key.replace('/', '_')}_s{seed}"
-            folder = args.output / label
-            command = [
-                sys.executable,
-                "-m",
-                "foragebench",
-                "run",
-                "--episode",
-                key,
-                "--track",
-                args.track,
-                "--agent",
-                args.agent,
-                "--seed",
-                str(seed),
-                "--benchmark",
-                str(args.benchmark),
-                "--output",
-                str(folder),
-                *(["--record"] if args.record else []),
-                *(["--headless"] if args.headless else []),
-            ]
-            print(f"== {label}", flush=True)
-            with (args.output / f"{label}.log").open("w") as log:
-                code = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT).returncode
-            path = folder / "result.json"
-            status = json.loads(path.read_text()).get("status", "completed") if path.exists() else "error"
-            print(f"   {status} (exit {code})", flush=True)
+    # One process per episode with its repeats (PhyGS resets between them), or one per run (--fresh).
+    runs = [(key, None) for key in episodes]
+    if args.fresh:
+        runs = [(key, seed) for key in episodes for seed in range(args.repeats)]
+    for key, seed in runs:
+        label = key.replace("/", "_") + ("" if seed is None else f"_s{seed}")
+        folder = args.output / label
+        repeats = args.repeats if seed is None else 1
+        command = [
+            sys.executable,
+            "-m",
+            "foragebench",
+            "run",
+            "--episode",
+            key,
+            "--track",
+            args.track,
+            "--agent",
+            args.agent,
+            "--seed",
+            str(seed or 0),
+            "--repeats",
+            str(repeats),
+            "--benchmark",
+            str(args.benchmark),
+            "--output",
+            str(folder),
+            *(["--record"] if args.record else []),
+            *(["--headless"] if args.headless else []),
+        ]
+        print(f"== {label}", flush=True)
+        with (args.output / f"{label}.log").open("w") as log:
+            code = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT).returncode
+        found = sorted(folder.rglob("result.json"))
+        statuses = [json.loads(path.read_text()).get("status", "completed") for path in found] or ["error"]
+        print(f"   {', '.join(statuses)} (exit {code})", flush=True)
     summary = results.summarize(args.output, rules.get("spl_m_cost_per_manipulation_m", 1.0))
     (args.output / "summary.json").write_text(results.dumps(summary))
     print(results.table(summary))

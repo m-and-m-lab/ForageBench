@@ -4,6 +4,22 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Added (stage 4, 2026-10-30)
+
+- Repeats in one process: `foragebench run --repeats N` runs N seeds in one simulator process (PhyGS 0.8.0's `World.next_episode`), each in `<output>/s<seed>`, and every result names `episode_in_process`. `foragebench suite` runs each episode's repeats in one process (`--fresh` for one process per run); `results` reads the `s<seed>` folders.
+- `agent_wall_seconds: 1800` in the rules: a run whose agent takes longer ends as `agent_timeout`, a failure.
+- The model harness points: the skills take a camera and a pixel (`go_to`, `look_at`, `open_drawer`, `close_drawer`, `pick`), turned into a world point with the robot's own depth (`agents/model/perception.py`); `go_near` takes a world position for the known-target condition. The drawer skills find the handle near the pixel and the front's outward direction from depth, step in front of that drawer (the robot tests' open stance, on the measured drawer; again a tolerance nearer when the handle was out of reach) and use the robot tests' drawer stroke. `pick` measures the object's box from depth, steps into reach, measures it again from above and runs the robot tests' pick; later arm plans carry that box. `go_to` stands in front of upright surfaces; `look_at` tries the robot tests' views in turn; the walking skills stow the arm first. Nothing privileged.
+- `agents/model/openai_compatible.py`: one client for any model behind an OpenAI-compatible endpoint (Gemini on Google's, an open model served by vLLM); the key from an environment variable.
+- The `pointing_oracle` agent: the harness's skills driven with perfect pixels on the privileged track (`go_to`, `look_at`, `open_drawer`, `pick`); while no camera sees the handle or the target it first walks to the robot tests' stance, where a model would explore.
+
+### Changed (stage 4, 2026-10-30)
+
+- Pinned PhyGS 0.8.0. A benchmark version change.
+
+### Removed (stage 4, 2026-10-30)
+
+- The harness's world-coordinate skills (`navigate`, `look_at` on a point, `move_hand_to`) and the raw gripper skills: a model points at pixels instead. `agents/model/gemini_robotics_er.py` (the Google SDK client): Gemini runs through the OpenAI-compatible client.
+
 ### Changed (phase C, 2026-10-29)
 
 - **Episode files split what the agent is told from the answer.** `task` is `{goal, description}` only; the target's scene name moved to a hidden `answer: {target}` block; the `benchmark` block became `optimal: {path_length_m, manipulations}`. `Episode` gains `public_task` and `answer`. Migrate an episode file by moving `task.target` to `answer.target` and renaming the block. A benchmark version change.

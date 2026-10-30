@@ -118,3 +118,16 @@ def test_the_reached_rate_and_the_progress_funnel(tmp_path):
     assert group["reached_rate"] == pytest.approx(0.75)
     assert group["progress"]["opened"] == pytest.approx(1.0)  # Two runs with something to open, both opened it.
     assert group["progress"]["held"] == pytest.approx(0.5) and group["progress"]["touched"] == pytest.approx(0.5)
+
+
+def test_an_episodes_repeats_in_one_process_are_read_from_their_seed_folders(tmp_path):
+    """``run --repeats``: one folder per episode, a ``s<seed>`` folder per repeat; a repeat with no
+    result is an error, and the episode folder's own files and logs are not runs."""
+    episode = tmp_path / "dev_grid_table"
+    episode.mkdir()
+    write_runs(episode, {"s0": run(), "s1": run(outcome="failure"), "s2": run()})
+    (episode / "s3" / "nav2").mkdir(parents=True)  # A repeat that never wrote its result.
+    (episode / "environment.yaml").write_text("{}")
+    summary = summarize(tmp_path)
+    assert summary["runs"] == 3 and summary["groups"][0]["success_rate"] == pytest.approx(2 / 3)
+    assert summary["not_scored"]["error"] == [dict(run="dev_grid_table/s3", reason="no result.json")]

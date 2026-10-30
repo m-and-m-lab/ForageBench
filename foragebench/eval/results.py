@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import re
 from collections import defaultdict
 from pathlib import Path
 
@@ -88,6 +89,16 @@ def unpinned(result: dict) -> bool:
 
 
 STATUSES = ("completed", "setup_error", "error")
+REPEAT = re.compile(r"s\d+")  # The folder of one repeat: s<seed>.
+
+
+def read_result(path: Path) -> dict:
+    """One ``result.json``; a result from before statuses counts as ``completed``."""
+    result = json.loads(path.read_text())
+    result.setdefault("status", "completed")
+    if result["status"] not in STATUSES:
+        raise ValueError(f"{path}: unknown status {result['status']!r}; expected one of {STATUSES}.")
+    return result
 
 
 def load_results(folder: Path) -> tuple[list[dict], list[str]]:
@@ -97,11 +108,15 @@ def load_results(folder: Path) -> tuple[list[dict], list[str]]:
     for run in sorted(p for p in folder.iterdir() if p.is_dir()):
         path = run / "result.json"
         if path.is_file():
-            result = json.loads(path.read_text())
-            result.setdefault("status", "completed")
-            if result["status"] not in STATUSES:
-                raise ValueError(f"{path}: unknown status {result['status']!r}; expected one of {STATUSES}.")
-            results.append(dict(result, run=run.name))
+            results.append(dict(read_result(path), run=run.name))
+        elif any(REPEAT.fullmatch(sub.name) for sub in run.iterdir() if sub.is_dir()):
+            # An episode's repeats in one process (``run --repeats``), a folder ``s<seed>`` each.
+            for sub in sorted(p for p in run.iterdir() if p.is_dir() and REPEAT.fullmatch(p.name)):
+                inner = sub / "result.json"
+                if inner.is_file():
+                    results.append(dict(read_result(inner), run=f"{run.name}/{sub.name}"))
+                else:
+                    errors.append(f"{run.name}/{sub.name}")
         else:
             errors.append(run.name)
     return results, errors

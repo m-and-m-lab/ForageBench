@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import phygs_robot_tests.routines as routines
+
 from foragebench.agents.model.orchestrator import Observation, Orchestrator, SkillCall
 from foragebench.agents.model.skills import SKILLS, SkillResult
 
@@ -25,7 +27,8 @@ class LoopConfig:
     repeat_limit: int = 3
 
 
-def observe(session) -> Observation:
+def observe(session) -> tuple[Observation, object]:
+    """What the model is shown, and the packet it came from (the skills read the pixels' depth in it)."""
     packet = session.observe()
     images = {}
     for name, camera in packet.cameras.items():
@@ -39,7 +42,7 @@ def observe(session) -> Observation:
 
         m = localization.pose.matrix
         pose = (float(m[0, 3]), float(m[1, 3]), math.atan2(float(m[1, 0]), float(m[0, 0])))
-    return Observation(images=images, pose=pose)
+    return Observation(images=images, pose=pose), packet
 
 
 def run_loop(session, orchestrator: Orchestrator, config: LoopConfig | None = None) -> list[SkillResult]:
@@ -49,10 +52,11 @@ def run_loop(session, orchestrator: Orchestrator, config: LoopConfig | None = No
     if "object_targets" in session.grants:  # The known-target condition: a track grants it.
         hint = session.hints.target()
         target = tuple(float(v) for v in hint.center)
+    routines.use_robot(session.robot)  # The skills' motions read the robot's tools and arm.
     orchestrator.reset(session.task.description, target)
     history: list[SkillResult] = []
     for _ in range(config.max_calls):
-        observation = observe(session)
+        observation, packet = observe(session)
         observation.history = list(history)
         try:
             call = orchestrator.act(observation)
@@ -61,7 +65,7 @@ def run_loop(session, orchestrator: Orchestrator, config: LoopConfig | None = No
             continue
         skill = SKILLS[call.name]
         try:
-            status, reason = skill.run(session, **call.args)
+            status, reason = skill.run(session, packet, **call.args)
         except Exception as error:  # A refused or failed session call: the model is told why.
             status, reason = "refused", f"{type(error).__name__}: {error}"
         result = SkillResult(call, status, reason)

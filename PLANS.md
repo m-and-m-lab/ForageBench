@@ -1,6 +1,6 @@
 # Plans
 
-Status on 2026-10-29 (develop, PhyGS 0.7.0): the unit tests pass; the oracle's noise floor on the dev set is measured (15/15 success, 5/15 clean over five seeds per episode; README baselines); the null agent is the floor.
+Status on 2026-10-29 (develop, PhyGS 0.8.0): the unit tests pass; the oracle's noise floor on the dev set is measured (15/15 success, 5/15 clean over five seeds per episode; README baselines); the null agent is the floor.
 
 The order is the build order of 2026-10-28: a scored run, a still end state, tracks and the oracle as an agent (all done), a model can play, a benchmark, then reach. Two steps went before a model plays (decided 2026-10-29): the structure, and the evaluator with the episode files, so that the first model runs are scored by the evaluator they will be compared under and need no rerun.
 
@@ -13,10 +13,11 @@ The order is the build order of 2026-10-28: a scored run, a still end state, tra
 
 ## Next, in order
 
-1. **A model can play.** PhyGS: the session over a wire, so an agent runs in its own process with no Isaac imports (it is also what keeps an agent away from ground truth). ForageBench: the client package, then the first model runs (Qwen3-VL, Gemini Robotics-ER; `agents/model/`, `--agent vlm`) on `gt_localization`, then on `privileged` as the known-target condition. Neither model has been run against this harness yet: expect prompt and image-format fixes.
-2. **ForageBench as the gateway to the dataset.** Episode files are released on Hugging Face with the scene they belong to; ForageBench fetches both and runs them on PhyGS. One scene (`bear_loop_house`) is enough for development. New episodes start the robot in another room than the target (living room to kitchen); no difficulty tiers yet.
-3. **A benchmark.** More scenes and episodes, each certified by the oracle; a frozen set with a hidden half; the noise floor with at least 20 repeats.
-4. **Reach.** Track `onboard` (the agent localizes; needs PhyGS's camera-only localization), doors (the base and the arm together), results page and submissions.
+1. **A model can play** (in progress, 2026-10-30). The agent stays in the simulator's process, like robosuite, RoboCasa and the recent agentic benchmarks; a model is reached over its API. Steps: the skills take image points, and a drawer skill without privileged information (`open_drawer`/`close_drawer` from depth): working in simulation (the `pointing_oracle`, perfect pixels, 2026-10-30: grid_table 2/2, grid_drawer 2/2, house_drawer 2/3; the house box measures 3 cm deep of 5 behind the drawer front, and the failed run's grip held the box while the gripper read as not holding); a wall-clock limit (done, 1800 s); one OpenAI-compatible client for every model (done); then the model runs, Qwen3-VL and Gemini Robotics-ER, on `gt_localization`, then `privileged` as the known-target condition. Needs from the user: a Gemini API key in the environment, and either vLLM for a local Qwen3-VL server or its weights for the in-process orchestrator.
+2. **Code-writing agents.** Many episodes per process (done in PhyGS 0.8.0, `World.next_episode`); a sandboxed executor for model-written code in its own process (the wire, justified for this kind of agent); a workspace that survives episodes for skill libraries; a code-as-policy baseline in the style of CaP-X.
+3. **ForageBench as the gateway to the dataset.** Episode files are released on Hugging Face with the scene they belong to; ForageBench fetches both and runs them on PhyGS. One scene (`bear_loop_house`) is enough for development. New episodes start the robot in another room than the target (living room to kitchen); no difficulty tiers yet.
+4. **A benchmark.** More scenes and episodes, each certified by the oracle; a frozen set with a hidden half; the noise floor with at least 20 repeats.
+5. **Reach.** Track `onboard` (the agent localizes; needs PhyGS's camera-only localization), doors (the base and the arm together), results page and submissions.
 
 ## Known gaps
 

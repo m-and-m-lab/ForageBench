@@ -25,7 +25,7 @@ Interactive semantic object search is the task of locating and retrieving a targ
 
 ForageBench is under active development at the [Mapping and Motion Lab](https://sites.google.com/umich.edu/mandmlab/), and this version of the repository is a beta release intended for early community testing and usage. Please file a GitHub issue detailing any bugs faced or major feature requests, and the team will respond to and resolve these issues as soon as possible.
 
-The `main` branch is the May 2026 beta. The `develop` branch is the benchmark described below, on PhyGS 0.7.0: the retrieve task with a physical evaluator, tracks, Nav2 navigation, cuRobo or MoveIt arm planning, 250 Hz physics. The episode set in this branch is the three development episodes (manifest v0); the 25-scene, 100-episode set and the hidden test split follow with manifest v1.
+The `main` branch is the May 2026 beta. The `develop` branch is the benchmark described below, on PhyGS 0.8.0: the retrieve task with a physical evaluator, tracks, Nav2 navigation, cuRobo or MoveIt arm planning, 250 Hz physics. The episode set in this branch is the three development episodes (manifest v0); the 25-scene, 100-episode set and the hidden test split follow with manifest v1.
 
 ## 🎯 What ForageBench measures
 

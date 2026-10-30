@@ -101,6 +101,16 @@ def parse_skill_call(text: str) -> SkillCall:
     return SkillCall(name, args)
 
 
+def turn_text(observation: Observation, limit: int) -> str:
+    """The text of one turn: the robot's pose when known, the latest results, the reply format."""
+    pose = "unknown" if observation.pose is None else [round(v, 3) for v in observation.pose]
+    return (
+        f"Your pose (x [m], y [m], heading [rad]): {pose}.\n"
+        f"Previous skill results:\n{history_text(observation.history, limit)}\n"
+        "The camera images follow. Reply with one JSON object."
+    )
+
+
 def history_text(history: list[SkillResult], limit: int) -> str:
     """The last ``limit`` results as lines the model can read."""
     return "\n".join(f"{r.call.name}({r.call.args}) -> {r.status}: {r.reason}" for r in history[-limit:]) or "(none)"

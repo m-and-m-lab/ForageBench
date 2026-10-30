@@ -16,6 +16,11 @@ end-of-episode settings; the result records them with the episode's scene releas
 PhyGS puts in the report's provenance. ``result.json`` is written in every case: its ``status`` is
 ``completed`` (scored), ``setup_error`` (PhyGS's start check failed; the agent never ran) or ``error``
 (the simulator or the World broke). The exit code is 1 only for ``error``.
+
+``--repeats N`` runs N episodes in this one simulator process (seeds ``seed`` to ``seed + N - 1``,
+each in ``<output>/s<seed>``): PhyGS restores the start state between them (``World.next_episode``),
+so only the first pays Isaac Sim's start-up. Every result says which episode of its process it was
+(``episode_in_process``).
 """
 
 from __future__ import annotations
@@ -44,6 +49,7 @@ parser.add_argument("--agent", required=True, help="A module of foragebench.agen
 parser.add_argument("--output", type=Path, required=True, help="A fresh output folder (date-time prefix)")
 parser.add_argument("--benchmark", type=Path, default=ROOT / "configs" / "benchmark_v1.yaml")
 parser.add_argument("--seed", type=int, default=None, help="Override the episode's seed")
+parser.add_argument("--repeats", type=int, default=1, help="Episodes in this process, seeds seed..seed+N-1")
 parser.add_argument("--robot", default=None, help="Run with another robot: a PhyGS robot name or a robot.yaml")
 parser.add_argument("--record", action="store_true", help="Write a third-person video")
 AppLauncher.add_app_launcher_args(parser)
@@ -56,12 +62,18 @@ episode = load_episode(args.episode, track=args.track, manifest=ROOT / rules["ma
 spec = EpisodeSpec.from_dict(episode.spec, base=episode.path.parent)  # Validated before Isaac Sim starts.
 if args.seed is not None:
     spec = spec.with_seed(args.seed)
-task = load_task(spec.task)
+task = load_task(spec.task)  # One task object; the World resets it before each episode.
 
 
 agent_name, agent, prepare = load_agent(args.agent)
-if (args.output / "result.json").exists():
-    parser.error(f"{args.output} holds a finished run; choose a fresh output folder")
+if args.repeats < 1:
+    parser.error("--repeats is at least 1")
+SEEDS = [spec.seed + k for k in range(args.repeats)]
+# One run: its result in --output; repeats: one folder per seed under it.
+FOLDERS = [args.output] if args.repeats == 1 else [args.output / f"s{seed}" for seed in SEEDS]
+for folder in FOLDERS:
+    if (folder / "result.json").exists():
+        parser.error(f"{folder} holds a finished run; choose a fresh output folder")
 args.output.mkdir(parents=True, exist_ok=True)
 app = AppLauncher(args).app
 
@@ -102,7 +114,7 @@ def skill_counts(commands: list[dict]) -> dict:
     )
 
 
-def identity() -> dict:
+def identity(seed: int) -> dict:
     """What every result names, whatever its status."""
     return dict(
         benchmark=rules["benchmark"],
@@ -111,30 +123,31 @@ def identity() -> dict:
         track=episode.track,
         agent=agent_name,
         robot=robot.name,
-        seed=spec.seed,
+        seed=seed,
     )
 
 
-def write_error(trace: str) -> None:
-    """The result of a run that broke: status ``error`` and the last line of the traceback."""
-    lines = trace.strip().splitlines()
+def write_error(folder: Path, seed: int, reason: str) -> None:
+    """The result of a run that broke, or never ran because an earlier one broke the process."""
+    folder.mkdir(parents=True, exist_ok=True)
     result = dict(
-        **identity(),
+        **identity(seed),
         status="error",
-        reason=lines[-1] if lines else "unknown",
-        report="report.json" if (args.output / "report.json").exists() else None,
+        reason=reason,
+        report="report.json" if (folder / "report.json").exists() else None,
     )
-    (args.output / "result.json").write_text(json.dumps(result, indent=1))
+    (folder / "result.json").write_text(json.dumps(result, indent=1))
 
 
 def main() -> int:
     if prepare is not None:
         prepare(spec, robot)  # The oracle's routines learn the scene and the robot.
     overrides = benchmark_overrides()
+    done, code = 0, 0
     try:
         with World(
-            spec,
-            args.output,
+            spec.with_seed(SEEDS[0]),
+            FOLDERS[0],
             clock=rules["clock"],
             record=args.record,
             device=args.device,
@@ -142,14 +155,28 @@ def main() -> int:
             robot=robot,
             task=task,
         ) as world:
-            report = world.run(agent, name=agent_name)
+            for k, (seed, folder) in enumerate(zip(SEEDS, FOLDERS, strict=True)):
+                if k:
+                    world.next_episode(folder, seed=seed)
+                report = world.run(agent, name=agent_name)
+                code = max(code, write_result(folder, seed, report, episode_in_process=world.episodes))
+                done += 1
     except BaseException:
-        write_error(traceback.format_exc())
+        if done < len(SEEDS):  # Else every episode has its result and closing the World broke.
+            lines = traceback.format_exc().strip().splitlines()
+            write_error(FOLDERS[done], SEEDS[done], lines[-1] if lines else "unknown")
+            for seed, folder in zip(SEEDS[done + 1 :], FOLDERS[done + 1 :], strict=True):
+                write_error(folder, seed, f"not run: the episode with seed {SEEDS[done]} broke this process")
         raise
+    return code
+
+
+def write_result(folder: Path, seed: int, report: dict, *, episode_in_process: int) -> int:
+    """``result.json`` for one episode's report; returns the exit code it asks for (1 for error)."""
     evaluation = report["evaluation"]
     counts = skill_counts(report["commands"])
     result = dict(
-        **identity(),
+        **identity(seed),
         status=report["status"],
         outcome=evaluation.get("outcome"),
         # Not scored: why (the start check's problems), not the evaluation's "not evaluated".
@@ -173,6 +200,7 @@ def main() -> int:
         skill_successes=counts["skill_successes"],
         sim_seconds=report["sim_seconds"],
         wall_seconds=report["wall_seconds"],
+        episode_in_process=episode_in_process,  # 1: a fresh process; more: a repeat after a reset.
         usage=report["usage"],
         scene=dict(id=spec.scene.id, version=spec.scene.version, usd_sha256=report["provenance"]["scene_usd"]),
         provenance=dict(
@@ -185,11 +213,11 @@ def main() -> int:
         ),
         report="report.json",
     )
-    (args.output / "result.json").write_text(json.dumps(result, indent=1))
+    (folder / "result.json").write_text(json.dumps(result, indent=1))
     print(
-        f"{episode.set}/{episode.id} [{episode.track}] {agent_name} {result['status']}: {result['outcome']}"
-        f" ({result['reason']}), clean={result['clean']}, ended by {result['ended_by']} after"
-        f" {result['sim_seconds']} s; {args.output}/result.json",
+        f"{episode.set}/{episode.id} [{episode.track}] {agent_name} seed {seed} {result['status']}:"
+        f" {result['outcome']} ({result['reason']}), clean={result['clean']}, ended by {result['ended_by']}"
+        f" after {result['sim_seconds']} s; {folder}/result.json",
         flush=True,
     )
     return 1 if result["status"] == "error" else 0

@@ -5,12 +5,18 @@
 
 """The model agent: a vision-language model choosing skills (``foragebench.agents.vlm``).
 
-``FORAGEBENCH_ORCHESTRATOR`` selects the orchestrator: ``scripted`` (default; a short fixed
-sequence, for smoke runs), ``qwen3_vl`` or ``gemini_robotics_er``. ``FORAGEBENCH_MODEL`` overrides
-the model name; ``FORAGEBENCH_MAX_CALLS`` the call budget (default 40).
+``FORAGEBENCH_ORCHESTRATOR`` selects the orchestrator:
 
-    ./isaaclab.sh -p -m foragebench run --episode dev/grid_table --track gt_localization \\
-        --agent vlm --output ...
+- ``scripted`` (default): a short fixed sequence, for smoke runs.
+- ``openai``: any model behind an OpenAI-compatible endpoint, ``FORAGEBENCH_BASE_URL`` (default
+  Google's for Gemini), the key in the environment variable named by ``FORAGEBENCH_API_KEY_ENV``
+  (default ``GEMINI_API_KEY``; empty for a local server such as vLLM).
+- ``qwen3_vl``: Qwen3-VL loaded in this process with transformers (no server needed).
+
+``FORAGEBENCH_MODEL`` names the model; ``FORAGEBENCH_MAX_CALLS`` sets the call budget (default 40).
+
+    GEMINI_API_KEY=... FORAGEBENCH_ORCHESTRATOR=openai FORAGEBENCH_MODEL=gemini-robotics-er-1.5-preview \\
+    ./isaaclab.sh -p -m foragebench run --episode dev/grid_table --track gt_localization --agent vlm --output ...
 """
 
 from __future__ import annotations
@@ -33,11 +39,15 @@ def orchestrator():
         from foragebench.agents.model.qwen3_vl import Qwen3VLOrchestrator
 
         return Qwen3VLOrchestrator(config)
-    if kind == "gemini_robotics_er":
-        from foragebench.agents.model.gemini_robotics_er import GeminiRoboticsEROrchestrator
+    if kind == "openai":
+        from foragebench.agents.model.openai_compatible import GEMINI, OpenAICompatibleOrchestrator
 
-        return GeminiRoboticsEROrchestrator(config)
-    raise ValueError(f"Unknown FORAGEBENCH_ORCHESTRATOR {kind!r}: scripted, qwen3_vl or gemini_robotics_er")
+        return OpenAICompatibleOrchestrator(
+            config or OrchestratorConfig(),
+            os.environ.get("FORAGEBENCH_BASE_URL", GEMINI),
+            os.environ.get("FORAGEBENCH_API_KEY_ENV", "GEMINI_API_KEY") or None,
+        )
+    raise ValueError(f"Unknown FORAGEBENCH_ORCHESTRATOR {kind!r}: scripted, openai or qwen3_vl")
 
 
 def run(session) -> None:

@@ -37,7 +37,7 @@ AGENT_ALLOWED = (
     "torch",  # The model orchestrators' optional dependencies, imported lazily.
     "transformers",
     "PIL",
-    "google",
+    "requests",  # The OpenAI-compatible client.
 )
 
 
