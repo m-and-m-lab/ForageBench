@@ -27,6 +27,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 import traceback
 from pathlib import Path
@@ -158,6 +159,7 @@ def main() -> int:
             for k, (seed, folder) in enumerate(zip(SEEDS, FOLDERS, strict=True)):
                 if k:
                     world.next_episode(folder, seed=seed)
+                os.environ["FORAGEBENCH_AGENT_DIR"] = str(folder / "agent")  # The agent's own log, if it keeps one.
                 report = world.run(agent, name=agent_name)
                 code = max(code, write_result(folder, seed, report, episode_in_process=world.episodes))
                 done += 1

@@ -202,6 +202,31 @@ def object_box(
     return centre, size
 
 
+def upright_turns(packet, camera: str) -> int:
+    """Quarter turns counterclockwise (``np.rot90``'s ``k``) that put the body's up nearest the top
+    of the camera's image. Spot's front cameras and its folded hand camera are mounted on their side;
+    a model reads a scene better upright. Uses the camera's mounting (extrinsics), on any track."""
+    found = camera_of(packet, camera)
+    body_from_camera = array(found.extrinsics.matrix).astype(float)
+    up = body_from_camera[:3, :3].T @ [0.0, 0.0, 1.0]  # The body's up in the optical frame (x right, y down).
+    turns = [(up[0], up[1]), (up[1], -up[0]), (-up[0], -up[1]), (-up[1], up[0])]  # Up after k turns.
+    return int(np.argmax([-y for _, y in turns]))
+
+
+def raw_pixel(u: float, v: float, turns: int, shape: tuple[int, ...]) -> tuple[float, float]:
+    """The pixel (u, v) of an image turned ``turns`` quarter turns counterclockwise (``np.rot90``)
+    back in the camera's own image of ``shape`` (height, width, ...)."""
+    height, width = shape[:2]
+    turns %= 4
+    if turns == 0:
+        return u, v
+    if turns == 1:
+        return width - 1 - v, u
+    if turns == 2:
+        return width - 1 - u, height - 1 - v
+    return v, height - 1 - u
+
+
 def project(packet, camera: str, point) -> tuple[float, float] | None:
     """The pixel (u, v) a world point [m] falls on in ``camera``, or None when it is behind the
     camera or outside the image (for tests and scripted agents that know a point)."""

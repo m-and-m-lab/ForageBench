@@ -84,10 +84,16 @@ def test_pointing_errors_name_the_problem():
 
 
 def test_parse_skill_call_strips_fences_and_checks_arguments():
-    call = parse_skill_call('```json\n{"skill": "go_to", "args": {"camera": "front", "u": 50, "v": 40}}\n```')
-    assert call == SkillCall("go_to", {"camera": "front", "u": 50, "v": 40})
+    call = parse_skill_call('```json\n{"skill": "go_to", "args": {"camera": "front", "target": "the box"}}\n```')
+    assert call == SkillCall("go_to", {"camera": "front", "target": "the box"})
     assert parse_skill_call('{"skill": "done"}') == SkillCall("done")
-    for text in ("no json here", '{"skill": "fly", "args": {}}', '{"skill": "go_to", "args": {"room": "kitchen"}}'):
+    pixels = '{"skill": "go_to", "args": {"camera": "front", "u": 5, "v": 6}}'  # A model names, not pixels.
+    for text in (
+        "no json here",
+        '{"skill": "fly", "args": {}}',
+        '{"skill": "go_to", "args": {"room": "kitchen"}}',
+        pixels,
+    ):
         with pytest.raises(ValueError):
             parse_skill_call(text)
 
@@ -97,7 +103,7 @@ def test_system_prompt_lists_every_skill_explains_pointing_and_states_the_condit
     known = build_system_prompt("a ceramic mug", (1.0, 2.0, 0.5), affordance_prior=True)
     assert "location is unknown" in unknown and "[1.0, 2.0, 0.5]" in known
     assert all(f"- {name}(" in unknown for name in SKILLS) and "kitchen drawers" in known
-    assert '"u" is the column' in unknown
+    assert '"target", what it is' in unknown and "- go_to(camera, target)" in unknown
 
 
 class FakeSession:
@@ -313,3 +319,113 @@ def test_open_drawer_stands_a_tolerance_nearer_when_the_handle_was_out_of_reach(
     walks = [call[1][0] for call in session.calls if call[0] == "navigate_to"]
     far, tolerance = skills.routines.PARAMS["grip_range_m"][1], skills.routines.PARAMS["goal_tolerance"][0]
     assert walks == pytest.approx([1.98 - (far - tolerance), 1.98 - (far - 2 * tolerance)])
+
+
+def test_a_grounding_reply_gives_the_pixel_in_each_family_s_format():
+    from foragebench.agents.model.orchestrator import parse_point, point_query
+
+    shape = (HEIGHT, WIDTH, 3)
+    qwen = '```json\n[{"point_2d": [500, 250], "label": "the box"}]\n```'
+    assert parse_point(qwen, "qwen", shape) == pytest.approx((WIDTH / 2, HEIGHT / 4))
+    gemini = '[{"point": [250, 500], "label": "the box"}]'  # [y, x].
+    assert parse_point(gemini, "gemini", shape) == pytest.approx((WIDTH / 2, HEIGHT / 4))
+    assert parse_point("I see no box.", "qwen", shape) is None
+    assert parse_point('[{"point_2d": [1200, -5]}]', "qwen", shape) == (WIDTH - 1.0, 0.0)  # Kept in the image.
+    assert "the box" in point_query("qwen", "the box") and "[y, x]" in point_query("gemini", "the box")
+
+
+def test_the_loop_finds_a_named_target_in_the_camera_image_the_model_named():
+    class Pointing(ScriptedOrchestrator):
+        def point(self, image, target):
+            self.asked = (image.shape, target)
+            return None if target == "a unicorn" else (50.0, 40.0)
+
+    session = FakeSession()
+    orchestrator = Pointing(
+        [
+            SkillCall("look_at", {"camera": "front", "target": "the box"}),
+            SkillCall("look_at", {"camera": "front", "target": "a unicorn"}),
+            SkillCall("look_at", {"camera": "rear", "target": "the box"}),
+        ]
+    )
+    results = run_loop(session, orchestrator)
+    assert results[0].ok and session.calls[0][1].position == pytest.approx((2.0, 0.0, 1.0))
+    assert results[1].status == "refused" and "could not find 'a unicorn' in any camera" in results[1].reason
+    assert results[2].status == "refused" and "no camera 'rear'" in results[2].reason
+    assert results[0].call.args == {"camera": "front", "target": "the box"}  # The model's own words in its history.
+
+
+def test_the_openai_client_sends_the_thinking_switch_and_logs_each_turn(tmp_path, monkeypatch):
+    from foragebench.agents.model import openai_compatible
+    from foragebench.agents.model.orchestrator import Observation, OrchestratorConfig
+
+    sent = []
+
+    def post(url, json, headers, timeout):
+        sent.append(json)
+        message = {"content": '{"skill": "stow", "args": {}}', "reasoning_content": "fold the arm"}
+        return SimpleNamespace(raise_for_status=lambda: None, json=lambda: {"choices": [{"message": message}]})
+
+    monkeypatch.setattr(openai_compatible.requests, "post", post)
+    client = openai_compatible.OpenAICompatibleOrchestrator(
+        OrchestratorConfig(model="m", thinking=False), "http://x/v1", None, log_dir=tmp_path / "agent"
+    )
+    client.reset("the box")
+    image = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
+    assert client.act(Observation(images={"front": image}, pose=None)) == SkillCall("stow")
+    assert sent[0]["chat_template_kwargs"] == {"enable_thinking": False}
+    import json as json_module
+
+    (turn,) = [json_module.loads(line) for line in (tmp_path / "agent" / "turns.jsonl").read_text().splitlines()]
+    assert turn["thought"] == "fold the arm" and turn["images"] == ["front"]
+    assert (tmp_path / "agent" / "turn_001_front.jpg").exists()
+
+
+@pytest.mark.parametrize("turns", [0, 1, 2, 3])
+def test_a_point_in_the_upright_image_maps_back_to_the_same_pixel_of_the_camera(turns):
+    raw = np.zeros((HEIGHT, WIDTH), dtype=int)
+    raw[13, 71] = 1
+    rows, cols = np.nonzero(np.rot90(raw, turns))
+    assert perception.raw_pixel(float(cols[0]), float(rows[0]), turns, raw.shape) == (71, 13)
+
+
+def test_a_camera_mounted_on_its_side_is_turned_so_the_body_s_up_is_up():
+    packet = fake_packet()
+    level = np.array([[0, 0, 1, 0], [-1, 0, 0, 0], [0, -1, 0, 0], [0, 0, 0, 1.0]])  # Optical y down = body -z.
+    packet.cameras["front"].extrinsics = SimpleNamespace(matrix=level)
+    assert perception.upright_turns(packet, "front") == 0
+    side = level.copy()
+    side[:3, :3] = level[:3, :3] @ np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1.0]])  # Rolled 90 deg about z.
+    packet.cameras["front"].extrinsics = SimpleNamespace(matrix=side)
+    turns = perception.upright_turns(packet, "front")
+    up = side[:3, :3].T @ [0, 0, 1.0]  # Body up in the image (x right, y down) after the turns is (0, -1).
+    after = [(up[0], up[1]), (up[1], -up[0]), (-up[0], -up[1]), (-up[1], up[0])][turns]
+    assert after == pytest.approx((0.0, -1.0)) and turns in (1, 3)
+
+
+def test_a_stow_with_no_plan_from_where_the_arm_is_lifts_the_hand_and_tries_again(monkeypatch):
+    lifts = []
+    monkeypatch.setattr(
+        skills.arm,
+        "move_straight",
+        lambda session, axis, distance: lifts.append((tuple(axis), distance)) or SimpleNamespace(status="succeeded"),
+    )
+    session = FakeSession()
+    answers = iter(["Joint planner failed: no_plan_within_budget", "ok"])
+    session.wait = lambda command: SimpleNamespace(
+        status="failed" if (reason := next(answers)) != "ok" else "succeeded", reason=reason
+    )
+    assert skills.SKILLS["stow"].run(session, session.packet) == ("succeeded", "ok")
+    assert lifts == [((0.0, 0.0, 1.0), skills.UNSTICK_M)]
+
+
+def test_a_target_the_named_camera_does_not_show_is_looked_for_in_the_other_cameras():
+    class Pointing(ScriptedOrchestrator):
+        def point(self, image, target):
+            return None if image.shape[1] == WIDTH else (5.0, 5.0)  # Only the narrow camera shows it.
+
+    session = FakeSession()
+    session.packet.cameras["side"] = SimpleNamespace(**vars(session.packet.cameras["front"]))
+    session.packet.cameras["side"].rgb = np.zeros((HEIGHT, WIDTH // 2, 3), dtype=np.uint8)
+    results = run_loop(session, Pointing([SkillCall("look_at", {"camera": "front", "target": "the box"})]))
+    assert results[0].ok and results[0].reason.startswith("(found in 'side', not 'front')")

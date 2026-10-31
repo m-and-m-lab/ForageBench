@@ -35,6 +35,7 @@ from foragebench.agents.model.perception import PointingError
 # pick steps the last bit itself.
 STANDOFF_M = 1.05
 STEP_M = 0.6  # pick: steps at most this far [m] to stand where the object is in reach.
+UNSTICK_M = 0.10  # stow: lift the hand this far [m] when no stow plan starts from where the arm is.
 PULL_M = 0.25  # open_drawer / close_drawer: stroke length [m], shortened to stay within reach.
 HANDLE_RADIUS_M = 0.01  # A handle bar's radius [m]: the depth return is its front, the bar axis behind.
 UP = np.array([0.0, 0.0, 1.0])
@@ -98,13 +99,24 @@ def _held(session) -> HeldObject | None:
     return _HELD.get(id(session)) if session.manipulation.holding else None
 
 
+def _stow(session) -> tuple[str, str]:
+    """Stow, carrying the held object. When no plan starts from where the arm is (a hand that ended
+    by a surface the depth map holds, 2026-10-30), lift the hand straight up and try once more."""
+    status, reason = _wait(session, session.manipulation.stow(held=_held(session)))
+    if status == "succeeded" or "planner failed" not in reason.lower():
+        return status, reason
+    if arm.move_straight(session, UP, UNSTICK_M).status != "succeeded":
+        return status, reason
+    return _wait(session, session.manipulation.stow(held=_held(session)))
+
+
 def _stow_to_walk(session) -> None:
     """Stow the arm (holding or not) unless it is stowed: the base walks with the arm folded."""
     joints = session.observe().joints
     measured = dict(zip(joints.names, perception.array(joints.positions).tolist(), strict=True))
     stow = routines.ARM["stow"]
     if max(abs(measured[j] - v) for j, v in zip(routines.ARM["joints"], stow)) > routines.PARAMS["stow_tolerance_rad"]:
-        status, reason = _wait(session, session.manipulation.stow(held=_held(session)))
+        status, reason = _stow(session)
         if status != "succeeded":
             raise AgentFailed(f"stowing the arm to walk: {reason}")
 
@@ -302,7 +314,7 @@ def close_drawer(session, seen, camera: str, u: float, v: float) -> tuple[str, s
 
 
 def stow(session, seen) -> tuple[str, str]:
-    return _wait(session, session.manipulation.stow(held=_held(session)))
+    return _stow(session)
 
 
 def done(session, seen) -> tuple[str, str]:
