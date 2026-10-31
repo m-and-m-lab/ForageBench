@@ -17,8 +17,9 @@
 ``FORAGEBENCH_MAX_TOKENS`` the reply budget, reasoning included (default 4096);
 ``FORAGEBENCH_POINTER`` the grounding query the model is trained on, ``qwen`` or ``gemini`` (default
 from the model's name); ``FORAGEBENCH_THINKING=0`` or ``1`` turns a vLLM-served model's thinking off
-or on. The client logs every turn (what the model was shown, its reply and thinking, each pointing
-query) under the run's ``agent/`` folder.
+or on. The run's ``agent/`` folder holds ``model.json`` (the model and its settings) and
+``turns.jsonl`` (the system prompt, then every turn: what the model was shown, its reply and thinking,
+each pointing query), with the images of each turn.
 
     GEMINI_API_KEY=... FORAGEBENCH_ORCHESTRATOR=openai FORAGEBENCH_MODEL=gemini-robotics-er-1.5-preview \\
     ./isaaclab.sh -p -m foragebench run --episode dev/grid_table --track gt_localization --agent vlm --output ...
@@ -29,7 +30,9 @@ query) under the run's ``agent/`` folder.
 
 from __future__ import annotations
 
+import json
 import os
+from pathlib import Path
 
 from foragebench.agents.model.loop import LoopConfig, run_loop
 from foragebench.agents.model.orchestrator import OrchestratorConfig, SkillCall
@@ -66,6 +69,29 @@ def orchestrator():
     raise ValueError(f"Unknown FORAGEBENCH_ORCHESTRATOR {kind!r}: scripted, openai or qwen3_vl")
 
 
+def settings(chosen, loop: LoopConfig) -> dict:
+    """What produced a run: the orchestrator, the model and where it answered, and every setting that
+    changes what the model is asked (the system prompt is the first line of ``turns.jsonl``)."""
+    config = chosen.config
+    return dict(
+        orchestrator=os.environ.get("FORAGEBENCH_ORCHESTRATOR", "scripted"),
+        model=config.model,
+        base_url=getattr(chosen, "base_url", None),
+        pointer=config.pointer,
+        thinking=config.thinking,
+        max_new_tokens=config.max_new_tokens,
+        history=config.history,
+        affordance_prior=config.affordance_prior,
+        max_calls=loop.max_calls,
+        repeat_limit=loop.repeat_limit,
+    )
+
+
 def run(session) -> None:
     budget = int(os.environ.get("FORAGEBENCH_MAX_CALLS", "40"))
-    run_loop(session, orchestrator(), LoopConfig(max_calls=budget))
+    chosen, loop = orchestrator(), LoopConfig(max_calls=budget)
+    folder = os.environ.get("FORAGEBENCH_AGENT_DIR")  # The run's agent/ folder (eval/run.py sets it).
+    if folder:
+        Path(folder).mkdir(parents=True, exist_ok=True)
+        (Path(folder) / "model.json").write_text(json.dumps(settings(chosen, loop), indent=1))
+    run_loop(session, chosen, loop)

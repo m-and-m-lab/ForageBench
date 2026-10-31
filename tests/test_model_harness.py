@@ -376,7 +376,8 @@ def test_the_openai_client_sends_the_thinking_switch_and_logs_each_turn(tmp_path
     assert sent[0]["chat_template_kwargs"] == {"enable_thinking": False}
     import json as json_module
 
-    (turn,) = [json_module.loads(line) for line in (tmp_path / "agent" / "turns.jsonl").read_text().splitlines()]
+    start, turn = [json_module.loads(line) for line in (tmp_path / "agent" / "turns.jsonl").read_text().splitlines()]
+    assert start["kind"] == "start" and "Find and retrieve: the box" in start["system_prompt"]
     assert turn["thought"] == "fold the arm" and turn["images"] == ["front"]
     assert (tmp_path / "agent" / "turn_001_front.jpg").exists()
 
@@ -429,3 +430,21 @@ def test_a_target_the_named_camera_does_not_show_is_looked_for_in_the_other_came
     session.packet.cameras["side"].rgb = np.zeros((HEIGHT, WIDTH // 2, 3), dtype=np.uint8)
     results = run_loop(session, Pointing([SkillCall("look_at", {"camera": "front", "target": "the box"})]))
     assert results[0].ok and results[0].reason.startswith("(found in 'side', not 'front')")
+
+
+def test_a_model_run_records_the_model_and_its_settings(tmp_path, monkeypatch):
+    from foragebench.agents import vlm
+
+    monkeypatch.setenv("FORAGEBENCH_ORCHESTRATOR", "openai")
+    monkeypatch.setenv("FORAGEBENCH_MODEL", "Qwen/Qwen3.5-9B")
+    monkeypatch.setenv("FORAGEBENCH_BASE_URL", "http://localhost:8000/v1")
+    monkeypatch.setenv("FORAGEBENCH_API_KEY_ENV", "")
+    monkeypatch.setenv("FORAGEBENCH_THINKING", "0")
+    monkeypatch.setenv("FORAGEBENCH_AGENT_DIR", str(tmp_path / "agent"))
+    monkeypatch.setattr(vlm, "run_loop", lambda session, chosen, loop: None)
+    vlm.run(SimpleNamespace())
+    import json as json_module
+
+    record = json_module.loads((tmp_path / "agent" / "model.json").read_text())
+    assert record["model"] == "Qwen/Qwen3.5-9B" and record["base_url"] == "http://localhost:8000/v1"
+    assert record["pointer"] == "qwen" and record["thinking"] is False and record["max_calls"] == 40

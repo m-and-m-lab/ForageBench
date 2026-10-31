@@ -94,6 +94,13 @@ class OpenAICompatibleOrchestrator(Orchestrator):
         self._log(observation, content[0]["text"], text, thought, data, time.perf_counter() - started)
         return parse_skill_call(text)
 
+    def reset(self, brief: str, target_position: tuple[float, float, float] | None = None) -> None:
+        super().reset(brief, target_position)
+        if self.log_dir is not None:  # The system prompt this episode, before its turns.
+            self.log_dir.mkdir(parents=True, exist_ok=True)
+            with (self.log_dir / "turns.jsonl").open("a") as file:
+                file.write(json.dumps(dict(kind="start", system_prompt=self.system_prompt)) + "\n")
+
     def point(self, image, target: str) -> tuple[float, float] | None:
         """One image and the model's own grounding query, thinking off (a vLLM-served model)."""
         query = point_query(self.config.pointer, target)
