@@ -1,6 +1,6 @@
 # Plans
 
-Status on 2026-10-29 (develop, PhyGS 0.9.0): the unit tests pass; the oracle's noise floor on the dev set is measured (15/15 success, 5/15 clean over five seeds per episode; README baselines); the null agent is the floor.
+Status on 2026-10-29 (develop, PhyGS 0.10.0): the unit tests pass; the oracle's noise floor on the dev set is measured (15/15 success, 5/15 clean over five seeds per episode; README baselines); the null agent is the floor.
 
 The order is the build order of 2026-10-28: a scored run, a still end state, tracks and the oracle as an agent (all done), a model can play, a benchmark, then reach. Two steps went before a model plays (decided 2026-10-29): the structure, and the evaluator with the episode files, so that the first model runs are scored by the evaluator they will be compared under and need no rerun.
 
