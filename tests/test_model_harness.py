@@ -17,9 +17,8 @@ import pytest
 from phygs.composite import TUNING, CompositeSkills
 from phygs.composite.skills import Motion
 from phygs.robots.description import load_robot
-from phygs.session import SkillFailure
 
-from foragebench.agents.model import perception, skills
+from foragebench.agents.model import perception
 from foragebench.agents.model.loop import LoopConfig, run_loop
 from foragebench.agents.model.orchestrator import SkillCall, build_system_prompt, parse_skill_call
 from foragebench.agents.model.perception import PointingError
@@ -88,14 +87,17 @@ def test_pointing_errors_name_the_problem():
 
 
 def test_parse_skill_call_strips_fences_and_checks_arguments():
-    call = parse_skill_call('```json\n{"skill": "go_to", "args": {"camera": "front", "target": "the box"}}\n```')
-    assert call == SkillCall("go_to", {"camera": "front", "target": "the box"})
+    call = parse_skill_call('```json\n{"skill": "navigate_to", "args": {"camera": "front", "target": "the box"}}\n```')
+    assert call == SkillCall("navigate_to", {"camera": "front", "target": "the box"})
     assert parse_skill_call('{"skill": "done"}') == SkillCall("done")
-    pixels = '{"skill": "go_to", "args": {"camera": "front", "u": 5, "v": 6}}'  # A model names, not pixels.
+    position = parse_skill_call('{"skill": "navigate_to", "args": {"x": 1.0, "y": 2.0}}')  # PhyGS's own form.
+    assert position == SkillCall("navigate_to", {"x": 1.0, "y": 2.0})
+    pixels = '{"skill": "navigate_to", "args": {"camera": "front", "u": 5, "v": 6}}'  # A model names, not pixels.
     for text in (
         "no json here",
         '{"skill": "fly", "args": {}}',
-        '{"skill": "go_to", "args": {"room": "kitchen"}}',
+        '{"skill": "navigate_to", "args": {"room": "kitchen"}}',
+        '{"skill": "go_to", "args": {"camera": "front", "target": "the box"}}',  # Not a PhyGS name.
         pixels,
     ):
         with pytest.raises(ValueError):
@@ -107,7 +109,11 @@ def test_system_prompt_lists_every_skill_explains_pointing_and_states_the_condit
     known = build_system_prompt("a ceramic mug", (1.0, 2.0, 0.5), affordance_prior=True)
     assert "location is unknown" in unknown and "[1.0, 2.0, 0.5]" in known
     assert all(f"- {name}(" in unknown for name in SKILLS) and "kitchen drawers" in known
-    assert '"target", what it is' in unknown and "- go_to(camera, target)" in unknown
+    assert '"target", what it is' in unknown and "- navigate_to(camera, target) or navigate_to(x, y)" in unknown
+    assert set(SKILLS) - {"done"} <= {"navigate_to", "explore", "command_velocity", "look_at", "stow", "pick"} | {
+        "open_drawer",
+        "close_drawer",
+    }  # PhyGS's names (the session's and the composite skills'), and done.
 
 
 class FakeSession:
@@ -124,23 +130,17 @@ class FakeSession:
             navigate_to=lambda *a, **k: ("navigate_to", a), explore=lambda **k: ("explore",)
         )
         self.locomotion = SimpleNamespace(command_velocity=lambda *a, **k: ("velocity", a))
-        self.stowed_with = []  # The held object each stow carried.
         self.manipulation = SimpleNamespace(look_at=lambda t, **k: ("look_at", t, k), stow=self._stow, holding=holding)
-        self.refuse_views = 0  # look_at views refused as out of reach before one succeeds.
         self.hints = SimpleNamespace(target=lambda: SimpleNamespace(center=(1.0, 2.0, 0.5)))
 
     def _stow(self, held=None):
-        self.stowed_with.append(held)
-        return ("stow",)
+        return ("stow", held)
 
     def observe(self):
         return self.packet
 
     def wait(self, command):
         self.calls.append(command)
-        if command[0] == "look_at" and self.refuse_views > 0:
-            self.refuse_views -= 1
-            return SimpleNamespace(status="failed", reason="out of reach", failure=SkillFailure.OUT_OF_REACH)
         return SimpleNamespace(status="succeeded", reason="ok")
 
     def sleep(self, seconds):
@@ -157,22 +157,25 @@ class FakeSession:
 def test_the_loop_walks_to_a_pointed_spot_aims_the_hand_camera_and_stops_on_done():
     session = FakeSession()
     calls = [
-        SkillCall("go_to", {"camera": "front", "u": 50, "v": 40}),
+        SkillCall("navigate_to", {"camera": "front", "u": 50, "v": 40}),
         SkillCall("look_at", {"camera": "front", "u": 50, "v": 40}),
     ]
     results = run_loop(session, ScriptedOrchestrator([*calls, SkillCall("stow")]))
-    assert [r.call.name for r in results] == ["go_to", "look_at", "stow", "done"] and all(r.ok for r in results)
+    assert [r.call.name for r in results] == ["navigate_to", "look_at", "stow", "done"] and all(r.ok for r in results)
     kind, (x, y, heading) = session.calls[0]
     assert kind == "navigate_to" and (x, y) == pytest.approx((2.0 - STANDOFF_M, 0.0)) and heading == pytest.approx(0.0)
-    target = session.calls[1][1]  # The world point the pixel shows in the capture the model was shown.
+    _, target, views = session.calls[1]  # The world point the pixel shows in the capture the model was shown,
     assert target.position == pytest.approx((2.0, 0.0, 1.0)) and target.frame == "world"
+    assert views == {"held": None}  # from look_at's own views.
     assert session.finished.startswith("model agent")
 
 
 def test_a_pixel_the_robot_cannot_use_is_refused_with_the_reason():
-    results = run_loop(FakeSession(), ScriptedOrchestrator([SkillCall("go_to", {"camera": "front", "u": 999, "v": 1})]))
+    point = {"camera": "front", "u": 999, "v": 1}
+    results = run_loop(FakeSession(), ScriptedOrchestrator([SkillCall("navigate_to", point)]))
     assert results[0].status == "refused" and "outside" in results[0].reason
-    blind = run_loop(FakeSession(pose=False), ScriptedOrchestrator([SkillCall("go_near", {"x": 1, "y": 0})]))
+    point = {"camera": "front", "u": 50, "v": 40}
+    blind = run_loop(FakeSession(pose=False), ScriptedOrchestrator([SkillCall("navigate_to", point)]))
     assert blind[0].status == "refused" and "pose" in blind[0].reason
     holding = run_loop(
         FakeSession(holding=True), ScriptedOrchestrator([SkillCall("pick", {"camera": "front", "u": 5, "v": 5})])
@@ -182,12 +185,12 @@ def test_a_pixel_the_robot_cannot_use_is_refused_with_the_reason():
 
 def test_the_loop_stops_on_repeats_and_on_the_budget():
     session = FakeSession(grants=("object_targets",))  # Known target: the prompt says where it is.
-    stuck = ScriptedOrchestrator([SkillCall("go_to", {"camera": "front", "u": 999, "v": 1})] * 5)
+    stuck = ScriptedOrchestrator([SkillCall("navigate_to", {"camera": "front", "u": 999, "v": 1})] * 5)
     results = run_loop(session, stuck, LoopConfig(max_calls=10, repeat_limit=3))
     assert [r.status for r in results[:3]] == ["refused"] * 3
     assert results[-1].status == "refused" and "3 times" in results[-1].reason and len(results) == 4
     assert "[1.0, 2.0, 0.5]" in stuck.system_prompt
-    turns = [SkillCall("turn", {"yaw_rate": 0.4, "seconds": 1.0 + k}) for k in range(9)]
+    turns = [SkillCall("command_velocity", dict(v_x=0.0, v_y=0.0, v_rot=0.4, duration=1.0 + k)) for k in range(9)]
     assert len(run_loop(FakeSession(), ScriptedOrchestrator(turns), LoopConfig(max_calls=2, repeat_limit=5))) == 2
     assert math.isfinite(perception.heading_to((0, 0), (1, 1)))
 
@@ -203,11 +206,11 @@ def test_open_drawer_stands_in_front_of_the_measured_drawer_then_pulls_it(monkey
         lambda self, part, kind, length: strokes.append((part, kind, length))
         or (Motion("succeeded"), {}, dict(moved_m=length)),
     )
-    session = FakeSession(stowed=False)  # The arm is out (after a look_at): it stows to walk.
+    session = FakeSession(stowed=False)  # The arm is out (after a look_at): the composite skill stows to walk.
     results = run_loop(session, ScriptedOrchestrator([SkillCall("open_drawer", {"camera": "front", "u": 50, "v": 50})]))
     assert results[0].ok, results[0].reason
-    stow, walk, settle = session.calls[:3]
-    assert stow == ("stow",) and settle[0] == "sleep"
+    stow, walk = session.calls[:2]
+    assert stow == ("stow", None)
     kind, (x, y, heading) = walk
     near, far = TUNING.grip_range_m
     tolerance = TUNING.goal_tolerance[0]
@@ -218,23 +221,11 @@ def test_open_drawer_stands_in_front_of_the_measured_drawer_then_pulls_it(monkey
     assert part.handle_center[0] == pytest.approx(1.98) and length == pytest.approx(PULL_M)
 
 
-def test_walking_skills_stow_an_arm_that_is_out_first():
+def test_navigate_to_a_world_position_is_phygs_own_and_adds_nothing():
+    """The arm out: PhyGS refuses to walk and says to stow first; the harness adds no stow of its own."""
     session = FakeSession(stowed=False)
-    run_loop(session, ScriptedOrchestrator([SkillCall("go_near", {"x": 3.0, "y": 0.0})]))
-    assert session.calls[0] == ("stow",) and session.calls[1][0] == "navigate_to"
-
-
-def test_look_at_tries_the_next_view_while_one_is_out_of_reach():
-    session = FakeSession()
-    session.refuse_views = 2
-    results = run_loop(session, ScriptedOrchestrator([SkillCall("look_at", {"camera": "front", "u": 50, "v": 40})]))
-    views = [call[2] for call in session.calls if call[0] == "look_at"]
-    expected = TUNING.look_views["target"][:3]
-    assert results[0].ok and [(v["distance_m"], v["elevation_deg"]) for v in views] == [tuple(e) for e in expected]
-    session = FakeSession()
-    session.refuse_views = 99
-    results = run_loop(session, ScriptedOrchestrator([SkillCall("look_at", {"camera": "front", "u": 50, "v": 40})]))
-    assert results[0].status == "failed" and "move the base" in results[0].reason
+    run_loop(session, ScriptedOrchestrator([SkillCall("navigate_to", {"x": 3.0, "y": 0.0})]))
+    assert session.calls[0] == ("navigate_to", (3.0, 0.0))
 
 
 def test_a_box_on_a_surface_is_measured_from_its_top_down_to_the_surface():
@@ -252,14 +243,14 @@ def test_a_box_on_a_surface_is_measured_from_its_top_down_to_the_surface():
     assert center[:2] == pytest.approx([0.0, 0.0], abs=0.01)
 
 
-def test_go_to_an_upright_surface_seen_at_an_angle_stands_in_front_of_it():
+def test_navigate_to_an_upright_surface_seen_at_an_angle_stands_in_front_of_it():
     """A wall through (2, 0, 1) turned 30 deg (normal (cos 30, sin 30, 0)), seen from the origin: the
     robot stands 1.05 m out along the wall's normal, facing it, not on the line of sight."""
     session = FakeSession()
     normal = np.array([math.cos(math.pi / 6), math.sin(math.pi / 6), 0.0])
     cols = np.arange(WIDTH)[None, :].repeat(HEIGHT, 0)
     session.packet.cameras["front"].depth = 2 * normal[0] / (normal[0] - (cols - WIDTH / 2) / F * normal[1])
-    run_loop(session, ScriptedOrchestrator([SkillCall("go_to", {"camera": "front", "u": 50, "v": 40})]))
+    run_loop(session, ScriptedOrchestrator([SkillCall("navigate_to", {"camera": "front", "u": 50, "v": 40})]))
     kind, (x, y, heading) = session.calls[0]
     assert (x, y) == pytest.approx(tuple(np.array([2.0, 0.0]) - normal[:2] * STANDOFF_M), abs=1e-3)
     assert heading == pytest.approx(math.pi / 6, abs=1e-3)
@@ -281,14 +272,13 @@ def test_the_surface_under_a_box_is_the_table_not_the_floor_seen_past_its_edge()
     assert perception.support_height(np.array([0.5] * 5), 0.6, 0.01) is None  # Too few points below.
 
 
-def test_pick_steps_square_to_put_the_object_in_reach_and_carries_the_box_it_measured(monkeypatch):
-    """The box on the floor 1.4 m ahead (world x) and 0.1 m left; the robot at the origin facing +x
-    keeps its heading and steps so the box is reach_ahead_m straight ahead. The box it measured
-    goes to the composite pick, and later stows carry the object it grasped."""
+def test_pick_hands_the_box_it_measured_to_the_composite_pick(monkeypatch):
+    """The box on the floor 1.4 m ahead (world x) and 0.1 m left: the composite pick gets the box the
+    depth measured (it walks into reach and looks itself); the harness makes no call of its own."""
     picked = []
 
-    def pick(self, center, size, look):
-        picked.append(SimpleNamespace(center=tuple(center), size=tuple(size), look=look))
+    def pick(self, center, size):
+        picked.append(SimpleNamespace(center=tuple(center), size=tuple(size)))
         self.held = "held box"
 
     monkeypatch.setattr(CompositeSkills, "pick", pick)
@@ -298,23 +288,13 @@ def test_pick_steps_square_to_put_the_object_in_reach_and_carries_the_box_it_mea
     camera.depth[30:51, 40:61] = 0.9  # The box top, 0.1 m above the floor.
     down = np.array([[1, 0, 0, 1.4], [0, -1, 0, 0.1], [0, 0, -1, 1.0], [0, 0, 0, 1.0]])
     session.packet.transform = lambda target, source, stamp: down
-    session.manipulation.holding = False
     results = run_loop(session, ScriptedOrchestrator([SkillCall("pick", {"camera": "front", "u": 50, "v": 40})]))
     assert results[0].ok, results[0].reason
-    reach = TUNING.reach_ahead_m
-    kind, (x, y, heading) = session.calls[0]
-    assert kind == "navigate_to" and (x, y, heading) == pytest.approx((1.4 - reach, 0.1, 0.0), abs=1e-3)
     (target,) = picked
-    assert not target.look and target.center == pytest.approx((1.4, 0.1, 0.05), abs=0.01)
-    session.manipulation.holding = True
+    assert target.center == pytest.approx((1.4, 0.1, 0.05), abs=0.01) and session.calls == []
+    session.manipulation.holding = True  # A later stow carries the box the pick measured.
     run_loop(session, ScriptedOrchestrator([SkillCall("stow")]))
-    assert session.stowed_with == ["held box"]
-
-
-def test_pick_refuses_an_object_further_than_a_step():
-    session = FakeSession()
-    results = run_loop(session, ScriptedOrchestrator([SkillCall("pick", {"camera": "front", "u": 50, "v": 40})]))
-    assert results[0].status == "refused" and "go_to it first" in results[0].reason  # The wall 2 m ahead.
+    assert session.calls[-1] == ("stow", "held box")
 
 
 def test_a_pixel_without_depth_takes_the_nearest_surface_around_it_not_the_background():
@@ -418,21 +398,6 @@ def test_a_camera_mounted_on_its_side_is_turned_so_the_body_s_up_is_up():
     up = side[:3, :3].T @ [0, 0, 1.0]  # Body up in the image (x right, y down) after the turns is (0, -1).
     after = [(up[0], up[1]), (up[1], -up[0]), (-up[0], -up[1]), (-up[1], up[0])][turns]
     assert after == pytest.approx((0.0, -1.0)) and turns in (1, 3)
-
-
-def test_a_stow_with_no_plan_from_where_the_arm_is_lifts_the_hand_and_tries_again(monkeypatch):
-    lifts = []
-    monkeypatch.setattr(
-        CompositeSkills,
-        "move_straight",
-        lambda self, axis, distance: lifts.append((tuple(axis), distance)) or Motion("succeeded"),
-    )
-    session = FakeSession()
-    no_plan = SimpleNamespace(status="failed", reason="no_plan_within_budget", failure=SkillFailure.PLANNING_FAILED)
-    answers = iter([no_plan, SimpleNamespace(status="succeeded", reason="ok")])
-    session.wait = lambda command: next(answers)
-    assert skills.SKILLS["stow"].run(session, session.packet) == ("succeeded", "stowed after lifting the hand")
-    assert lifts == [((0.0, 0.0, 1.0), TUNING.unstick_m)]
 
 
 def test_a_target_the_named_camera_does_not_show_is_looked_for_in_the_other_cameras():

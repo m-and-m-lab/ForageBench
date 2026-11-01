@@ -6,12 +6,13 @@
 """The model harness's skills with perfect pointing: what a model could reach with them.
 
 On the privileged track it reads where the target and the drawer handle are, projects them into the
-camera images, and calls the skills a model calls (``model/skills.py``) with those pixels: go to the
-handle, open the drawer, go to the target (on a table; in a drawer it stays where it opened it), look
-at it, pick it. A point hidden behind something (the target in a drawer) is pointed at where it is
-hidden. While no camera's image holds a point yet it first walks to the composite skills' stance
-for it, where a model would explore until it sees it. It checks that the pointing skills work
-physically; it is the ceiling of the skills (and of the estimator), not of a method.
+camera images, and calls the skills a model calls (``model/skills.py``) with those pixels:
+navigate_to the handle, open the drawer, navigate_to the target (on a table; in a drawer it stays
+where it opened it), look at it, pick it, stowing the arm before each walk as a model must. A point
+hidden behind something (the target in a drawer) is pointed at where it is hidden. While no
+camera's image holds a point yet it first walks to the composite skills' stance for it, where a
+model would explore until it sees it. It checks that the pointing skills work physically; it is the
+ceiling of the skills (and of the estimator), not of a method.
 
     ./isaaclab.sh -p -m foragebench run --episode dev/grid_drawer --track privileged \\
         --agent pointing_oracle --output ...
@@ -62,13 +63,15 @@ def in_image(session, point) -> dict | None:
     return pixel_of(session, point) or pixel_of(session, point, occluded=True)
 
 
-def in_view(session, point, what: str, walk) -> dict:
-    """The point's pixel; while no camera's image holds it, after ``walk()`` (to a composite skill's
-    stance for it)."""
+def in_view(session, point, what: str, stance) -> dict:
+    """The point's pixel; while no camera's image holds it, after walking to ``stance`` (a composite
+    skill's stance for it)."""
     seen = in_image(session, point)
     if seen is None:
         print(f"pointing oracle: no camera sees the {what}; walking to its stance", flush=True)
-        walk()
+        walked = session.wait(session.navigation.navigate_to(*stance))
+        if walked.status != "succeeded":
+            raise AgentFailed(f"navigate_to its stance: {walked.reason}")
         seen = in_image(session, point)
     if seen is None:
         raise AgentFailed(f"no camera sees the {what}")
@@ -91,15 +94,14 @@ def run(session) -> None:
     if target.inside is not None:
         part = session.hints.part(target.inside)
         handle = np.asarray(part.handle_center, dtype=float)
-        call(
-            session, "go_to", **in_view(session, handle, "drawer handle", lambda: skills.walk(skills.open_stance(part)))
-        )
+        call(session, "navigate_to", **in_view(session, handle, "drawer handle", skills.open_stance(part)))
         call(session, "open_drawer", **point_at(session, handle, "drawer handle"))
         call(session, "stow")
         target = session.hints.target()  # The open drawer moved it.
     top = np.asarray(target.center, dtype=float) + [0.0, 0.0, float(target.size[2]) / 2]
     if target.inside is None:
-        call(session, "go_to", **in_view(session, top, "target", lambda: skills.go_to_reach(target.center)))
+        stance = skills.reach_stances(target.center)[-1]
+        call(session, "navigate_to", **in_view(session, top, "target", stance))
     # In a drawer the robot stays where it pulled it open: the target is about as far ahead as the
     # handle was before the pull.
     seen = point_at(session, top, "target")

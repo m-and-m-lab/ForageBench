@@ -51,7 +51,9 @@ def orchestrator():
     if kind == "scripted":
         from foragebench.agents.model.scripted import ScriptedOrchestrator
 
-        return ScriptedOrchestrator([SkillCall("turn", {"yaw_rate": 0.4, "seconds": 2.0}), SkillCall("stow")])
+        return ScriptedOrchestrator(
+            [SkillCall("command_velocity", {"v_x": 0.0, "v_y": 0.0, "v_rot": 0.4, "duration": 2.0}), SkillCall("stow")]
+        )
     if kind == "openai":
         from foragebench.agents.model.openai_compatible import GEMINI, OpenAICompatibleOrchestrator
 

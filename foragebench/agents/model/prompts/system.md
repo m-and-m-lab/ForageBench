@@ -13,6 +13,8 @@ image and measures depth there.
 Available skills:
 $skills
 
+The base walks only with the arm folded: stow it before navigate_to or explore.
+
 $affordance_prior
 
 You also get the results of your previous skill calls, with the reason for any failure. The episode

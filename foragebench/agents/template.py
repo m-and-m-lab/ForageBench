@@ -5,7 +5,7 @@
 
 """Template agent: one call on every client the spec's tier grants, then finish. Copy this file
 and edit run(). Skills (``navigation``, ``manipulation``) walk to a point and stow the arm; the motion
-tier adds ``locomotion`` (a body velocity), the joints tier ``arm`` (arm joint angles).
+tier adds ``locomotion`` (a body velocity).
 
 Run it with:
     ./isaaclab.sh -p -m foragebench run --episode dev/grid_table --track privileged \
@@ -24,17 +24,9 @@ def run(session):
         feedback = session.wait(session.navigation.navigate_to(-1.0, -0.2, 0.0))  # Simulated time passes in wait.
         print("navigation:", feedback.status, feedback.reason)
 
-    if session.locomotion is not None:  # Motion and joints tiers: body velocity [m/s, m/s, rad/s].
+    if session.locomotion is not None:  # Motion tier: body velocity [m/s, m/s, rad/s].
         feedback = session.wait(session.locomotion.command_velocity(0.0, 0.0, 0.3, duration=1.0))
         print("locomotion:", feedback.status)
-
-    if session.arm is not None:  # Joints tier: the first arm joint [m or rad], then back to the start.
-        first = session.robot.arm_joints[0]  # The robot's own joint names.
-        joints = session.observe().joints  # Needs joint_state in the spec's observations.
-        start = float(joints.positions[joints.names.index(first)])
-        feedback = session.wait(session.arm.command_joint_positions({first: start + 0.2}))
-        print("arm:", feedback.status)
-        session.wait(session.arm.command_joint_positions({first: start}))
 
     for packet in session.stream(seconds=1.0):  # Observations while the robot stands.
         pass

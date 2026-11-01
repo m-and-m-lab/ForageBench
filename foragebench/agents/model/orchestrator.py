@@ -75,7 +75,10 @@ class Orchestrator(ABC):
 
 
 def skill_list() -> str:
-    return "\n".join(f"- {name}({', '.join(model_args(name))}): {skill.doc}" for name, skill in SKILLS.items())
+    def forms(name: str) -> str:
+        return " or ".join(f"{name}({', '.join(args)})" for args in model_forms(name))
+
+    return "\n".join(f"- {forms(name)}: {skill.doc}" for name, skill in SKILLS.items())
 
 
 POINTED = ("camera", "target")  # What a model names for a skill that acts at a point.
@@ -99,6 +102,12 @@ def model_args(name: str) -> tuple[str, ...]:
     of a pixel. The harness then asks the model where that is in that one image (:meth:`Orchestrator.point`)."""
     args = tuple(SKILLS[name].args)
     return POINTED if args == ("camera", "u", "v") else args
+
+
+def model_forms(name: str) -> tuple[tuple[str, ...], ...]:
+    """Each set of arguments a model may name for a skill: :func:`model_args`, and the skill's
+    ``or_args`` when it has them (navigate_to: x, y)."""
+    return (model_args(name), *((tuple(SKILLS[name].or_args),) if SKILLS[name].or_args else ()))
 
 
 def point_query(pointer: str, target: str) -> str:
@@ -147,8 +156,9 @@ def parse_skill_call(text: str) -> SkillCall:
         raise ValueError(f"Could not parse a skill call from {text!r}") from error
     if name not in SKILLS:
         raise ValueError(f"Unknown skill {name!r}; the skills are {sorted(SKILLS)}")
-    expected = model_args(name)
-    if tuple(sorted(args)) != tuple(sorted(expected)):
+    forms = model_forms(name)
+    if not any(sorted(args) == sorted(form) for form in forms):
+        expected = " or ".join(map(str, forms))
         raise ValueError(f"{name} expects arguments {expected}, got {tuple(args)}")
     return SkillCall(name, args)
 

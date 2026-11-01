@@ -31,15 +31,20 @@ image, with the grounding query the model family is trained on (Qwen's `point_2d
 the world point. In one prompt with three images and a skill to choose, Qwen3.5-9B gave round
 guesses for points; asked alone it pointed within a few pixels (2026-10-30).
 
-| Skill | Arguments | What it does |
+The skills are PhyGS's, under PhyGS's names (`model/skills.py`). Where a PhyGS skill takes a point,
+a box or a drawer, the model names a camera and a target instead, and the estimator
+(`model/perception.py`) turns the pixel into what the skill takes. That conversion and `done` are
+all the harness adds.
+
+| Skill | Arguments | PhyGS skill, and what the harness converts |
 | --- | --- | --- |
-| `go_to` | camera, target | stow, walk to 1.05 m from the point, facing it: in front of an upright surface (a drawer front), else along the line of sight (`navigation.navigate_to`) |
-| `go_near` | x, y | stow, walk to 1.05 m from a world position [m] along the line of sight (the known-target condition) |
-| `explore`, `turn` | seconds; yaw_rate, seconds | stow and `navigation.explore`; `locomotion.command_velocity` |
-| `look_at` | camera, target | aim the hand camera at the point from the composite skills' views in turn (`CompositeSkills.look_at`) |
-| `open_drawer`, `close_drawer` | camera, target | measure the drawer at the pixel from depth (the handle sticking out of the front, the front's outward direction), then the composite drawer stroke: stand in front of it (again a walk tolerance nearer if the handle was out of reach) and pull (push) it 0.25 m |
-| `pick` | camera, target | measure the object's box from depth, step (at most 0.6 m) so it is 0.95 m straight ahead, look down at it and measure it again, then the composite pick (straight down first, then tilted; each grasp yaw in turn); later plans carry the box as the held object |
-| `stow` | — | fold the arm (also holding, with the held object's box) |
+| `navigate_to` | camera, target; or x, y | `navigation.navigate_to`: at a pixel, a pose 1.05 m short of the point, facing it (in front of an upright surface such as a drawer front, else along the line of sight); at x, y, that position [m]. Refused with the arm out: stow first |
+| `explore` | timeout | `navigation.explore` [s]. Refused with the arm out |
+| `command_velocity` | v_x, v_y, v_rot, duration | `locomotion.command_velocity` [m/s, m/s, rad/s, s]; all zeros stops |
+| `look_at` | camera, target | `manipulation.look_at` at the pixel's point, from look_at's own views |
+| `open_drawer`, `close_drawer` | camera, target | the composite drawer stroke on the drawer measured at the pixel from depth (the handle sticking out of the front, the front's outward direction): it stows, stands in front of it (again a walk tolerance nearer if the handle was out of reach) and pulls (pushes) it 0.25 m |
+| `pick` | camera, target | the composite pick on the object's box measured from depth: it stows, walks to where the arm reaches it, looks at it, then straight down first, then tilted, each grasp yaw in turn; later plans carry the box as the held object |
+| `stow` | — | `manipulation.stow` (also holding, with the held object's box) |
 | `done` | — | ends the episode; the evaluator decides the outcome |
 
 `FORAGEBENCH_ORCHESTRATOR=scripted|openai`, `FORAGEBENCH_MODEL`, `FORAGEBENCH_BASE_URL`,

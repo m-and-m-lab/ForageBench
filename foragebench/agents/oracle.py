@@ -18,17 +18,15 @@ from phygs.session import AgentFailed
 def run(session) -> None:
     """Hold the target in the gripper with the arm stowed (PhyGS's ``check_retrieve`` plan)."""
     skills = CompositeSkills(session)
-    skills.stow()
-    target = session.hints.target()
+    target, part = session.hints.target(), None
     if target.inside is not None:
         skills.open_drawer(session.hints.part(target.inside))
-        skills.stow()
         target = session.hints.target()  # The open drawer moved it.
-        skills.go_to_reach(target.center, part=session.hints.part(target.inside))
-    else:
-        skills.go_to_reach(target.center)
-    skills.pick(target.center, target.size, name=target.name)
-    skills.stow()
+        part = session.hints.part(target.inside)
+    skills.pick(target.center, target.size, name=target.name, part=part)
+    stowed = session.wait(session.manipulation.stow(held=skills.held))
+    if stowed.status != "succeeded":
+        raise AgentFailed(f"stow: {stowed.reason}")
     if not session.manipulation.holding:
         raise AgentFailed("The target dropped in the stow.")
     session.finish("oracle: target held, arm stowed")
