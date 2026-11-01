@@ -34,11 +34,12 @@ from pathlib import Path
 
 import yaml
 from isaaclab.app import AppLauncher
-from phygs.world.spec import EpisodeSpec
+from phygs.world import EpisodeSpec
 
 import foragebench
 from foragebench.agents import load_agent
 from foragebench.episodes import load_episode
+from foragebench.eval.results import grasps
 from foragebench.tasks import load_task
 
 ROOT = Path(__file__).resolve().parents[2]  # The ForageBench checkout (installed editable).
@@ -79,9 +80,7 @@ args.output.mkdir(parents=True, exist_ok=True)
 app = AppLauncher(args).app
 
 from phygs.robots.description import load_robot  # noqa: E402
-from phygs.world import SETTINGS, World  # noqa: E402 (after the app starts)
-from phygs.world.build import load_settings  # noqa: E402
-from phygs.world.provenance import code_version, file_sha256  # noqa: E402
+from phygs.world import SETTINGS, World, code_version, file_sha256, load_settings  # noqa: E402 (after the app starts)
 
 robot = load_robot(args.robot or spec.robot.model)
 robot.validate_urdf()
@@ -107,11 +106,10 @@ def skill_counts(commands: list[dict]) -> dict:
         client = item["call"].split(".")[0]
         feedback = next(iter(item["feedback"].values())) if isinstance(item.get("feedback"), dict) else {}
         seen[(client, item["command"])] = str(feedback.get("status", ""))
-    manipulations = sum(1 for (client, _) in seen if client == "manipulation")
     return dict(
         skill_calls=len(seen),
         skill_successes=sum(status in ("succeeded", "done") for status in seen.values()),
-        manipulations=manipulations,
+        manipulation_commands=sum(1 for (client, _) in seen if client == "manipulation"),
     )
 
 
@@ -128,6 +126,15 @@ def identity(seed: int) -> dict:
     )
 
 
+def agent_setup(folder: Path) -> dict | None:
+    """What the agent says produced the run: its ``agent/model.json`` (model, server, pointing,
+    thinking, budgets), with that file's hash; None for an agent that writes none."""
+    path = folder / "agent" / "model.json"
+    if not path.is_file():
+        return None
+    return dict(json.loads(path.read_text()), sha256=file_sha256(path))
+
+
 def write_error(folder: Path, seed: int, reason: str) -> None:
     """The result of a run that broke, or never ran because an earlier one broke the process."""
     folder.mkdir(parents=True, exist_ok=True)
@@ -141,11 +148,11 @@ def write_error(folder: Path, seed: int, reason: str) -> None:
 
 
 def main() -> int:
-    if prepare is not None:
-        prepare(spec, robot)  # The oracle's routines learn the scene and the robot.
-    overrides = benchmark_overrides()
     done, code = 0, 0
     try:
+        if prepare is not None:
+            prepare(spec, robot)  # The oracle's routines learn the scene and the robot.
+        overrides = benchmark_overrides()
         with World(
             spec.with_seed(SEEDS[0]),
             FOLDERS[0],
@@ -155,6 +162,7 @@ def main() -> int:
             overrides=overrides,
             robot=robot,
             task=task,
+            target=episode.answer["target"],  # The privileged target; the grants decide what the agent learns.
         ) as world:
             for k, (seed, folder) in enumerate(zip(SEEDS, FOLDERS, strict=True)):
                 if k:
@@ -196,7 +204,8 @@ def write_result(folder: Path, seed: int, report: dict, *, episode_in_process: i
         ),
         path_length_m=(evaluation.get("measured") or {}).get("path_length_m"),
         optimal_path_length_m=episode.optimal_path_length_m,
-        manipulations=counts["manipulations"],
+        manipulations=grasps(report.get("grasp_contacts", [])),  # Holds of a handle or an object (SPL-M's unit).
+        manipulation_commands=counts["manipulation_commands"],
         optimal_manipulations=episode.optimal_manipulations,
         skill_calls=counts["skill_calls"],
         skill_successes=counts["skill_successes"],
@@ -204,6 +213,7 @@ def write_result(folder: Path, seed: int, report: dict, *, episode_in_process: i
         wall_seconds=report["wall_seconds"],
         episode_in_process=episode_in_process,  # 1: a fresh process; more: a repeat after a reset.
         usage=report["usage"],
+        agent_setup=agent_setup(folder),
         scene=dict(id=spec.scene.id, version=spec.scene.version, usd_sha256=report["provenance"]["scene_usd"]),
         provenance=dict(
             **report["provenance"],

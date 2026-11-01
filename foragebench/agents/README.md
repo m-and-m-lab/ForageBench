@@ -22,7 +22,7 @@ Run yours with `--agent path/to/agent.py:run`.
 | `skills.py` | The skills a model may name, each a few session calls returning the session's own status and reason |
 | `perception.py` | A pixel the model points at to a world point with the robot's depth (a pixel without depth takes the nearest surface around it); a drawer front's outward direction; the handle near a pixel; an object's box from its top down to the surface it stands on. Nothing privileged |
 | `loop.py` | Observe, ask, run, repeat; stops on `done`, the call budget, or the same call three times in a row |
-| `scripted.py`, `openai_compatible.py`, `qwen3_vl.py` | A fixed sequence (smoke runs); any model behind an OpenAI-compatible endpoint (Gemini on Google's, an open model served by vLLM); Qwen3-VL in this process through transformers. |
+| `scripted.py`, `openai_compatible.py` | A fixed sequence (smoke runs); any model behind an OpenAI-compatible endpoint (Gemini on Google's, an open model such as Qwen served by vLLM). |
 
 A model names what to act on: `camera` names an image it was shown (each turned upright), `target`
 says what the thing is in a few words. The harness asks the same model where that is in that one
@@ -42,5 +42,5 @@ guesses for points; asked alone it pointed within a few pixels (2026-10-30).
 | `stow` | — | fold the arm (also holding, with the held object's box) |
 | `done` | — | ends the episode; the evaluator decides the outcome |
 
-`FORAGEBENCH_ORCHESTRATOR=scripted|openai|qwen3_vl`, `FORAGEBENCH_MODEL`, `FORAGEBENCH_BASE_URL`,
+`FORAGEBENCH_ORCHESTRATOR=scripted|openai`, `FORAGEBENCH_MODEL`, `FORAGEBENCH_BASE_URL`,
 `FORAGEBENCH_API_KEY_ENV`, `FORAGEBENCH_MAX_CALLS` (default 40): `vlm.py`.

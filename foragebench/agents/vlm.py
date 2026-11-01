@@ -11,7 +11,6 @@
 - ``openai``: any model behind an OpenAI-compatible endpoint, ``FORAGEBENCH_BASE_URL`` (default
   Google's for Gemini), the key in the environment variable named by ``FORAGEBENCH_API_KEY_ENV``
   (default ``GEMINI_API_KEY``; empty for a local server such as vLLM).
-- ``qwen3_vl``: Qwen3-VL loaded in this process with transformers (no server needed).
 
 ``FORAGEBENCH_MODEL`` names the model; ``FORAGEBENCH_MAX_CALLS`` sets the call budget (default 40);
 ``FORAGEBENCH_MAX_TOKENS`` the reply budget, reasoning included (default 4096);
@@ -53,10 +52,6 @@ def orchestrator():
         from foragebench.agents.model.scripted import ScriptedOrchestrator
 
         return ScriptedOrchestrator([SkillCall("turn", {"yaw_rate": 0.4, "seconds": 2.0}), SkillCall("stow")])
-    if kind == "qwen3_vl":
-        from foragebench.agents.model.qwen3_vl import Qwen3VLOrchestrator
-
-        return Qwen3VLOrchestrator(config if model else None)
     if kind == "openai":
         from foragebench.agents.model.openai_compatible import GEMINI, OpenAICompatibleOrchestrator
 
@@ -66,7 +61,7 @@ def orchestrator():
             os.environ.get("FORAGEBENCH_API_KEY_ENV", "GEMINI_API_KEY") or None,
             log_dir=os.environ.get("FORAGEBENCH_AGENT_DIR"),
         )
-    raise ValueError(f"Unknown FORAGEBENCH_ORCHESTRATOR {kind!r}: scripted, openai or qwen3_vl")
+    raise ValueError(f"Unknown FORAGEBENCH_ORCHESTRATOR {kind!r}: scripted or openai (an open model through vLLM)")
 
 
 def settings(chosen, loop: LoopConfig) -> dict:

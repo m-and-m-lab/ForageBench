@@ -8,7 +8,7 @@
 :mod:`.orchestrator` (prompt, skill-call parsing), :mod:`.skills` (the skills, each a few session
 calls on a pixel the model points at), :mod:`.perception` (pixel to world point with the robot's
 depth), :mod:`.loop` (observe, choose, run, repeat), and the orchestrators: :mod:`.scripted` (a fixed
-list of calls, for tests and smoke runs), :mod:`.openai_compatible` (any model behind an
-OpenAI-compatible endpoint) and :mod:`.qwen3_vl` (in this process, transformers). The agent entry
+list of calls, for tests and smoke runs) and :mod:`.openai_compatible` (any model behind an
+OpenAI-compatible endpoint: Gemini on Google's, an open model such as Qwen served by vLLM). The agent entry
 point is ``foragebench.agents.vlm`` (``FORAGEBENCH_ORCHESTRATOR`` picks the orchestrator).
 """

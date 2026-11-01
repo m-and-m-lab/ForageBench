@@ -53,6 +53,26 @@ def spl_m(results: list[dict], cost_per_manipulation_m: float) -> float | None:
     )
 
 
+def grasps(grasp_contacts: list[dict], gap_s: float = 0.5) -> int:
+    """A run's manipulations in the episodes' unit (``optimal.manipulations``: a drawer opened, an
+    object picked): how many times the gripper held a body, from the report's ``grasp_contacts``
+    (one entry per jaw link and hold). Entries for one body that overlap, or follow within
+    ``gap_s`` [s], are one hold."""
+    holds = 0
+    by_body: dict[str, list[tuple[float, float]]] = defaultdict(list)
+    for contact in grasp_contacts:
+        by_body[contact["body"]].append((float(contact["first_s"]), float(contact["last_s"])))
+    for spans in by_body.values():
+        end = None
+        for first, last in sorted(spans):
+            if end is None or first > end + gap_s:
+                holds += 1
+                end = last
+            else:
+                end = max(end, last)
+    return holds
+
+
 def skill_execution_success(results: list[dict]) -> float | None:
     """The fraction of skill calls, pooled over runs, that ended succeeded; None without calls."""
     calls = sum(r.get("skill_calls", 0) for r in results)
@@ -177,6 +197,10 @@ def summarize(folder: Path, cost_per_manipulation_m: float = 1.0) -> dict:
                 mean_path_length_m=sum(r.get("path_length_m") or 0.0 for r in items) / len(items),
                 clean_successes=len(clean),
                 clean_rate=len(clean) / len(items),
+                # Runs the agent ended itself (finish) and how many of those failed: a claim of done
+                # that the evaluator did not confirm.
+                finishes=sum(r.get("ended_by") == "finish" for r in items),
+                false_finishes=sum(r.get("ended_by") == "finish" and r["outcome"] != "success" for r in items),
                 mean_sim_seconds=sum(r["sim_seconds"] for r in items) / len(items),
                 episodes=episodes,
                 phygs_versions=sorted({r["provenance"].get("phygs_version", "?") for r in items}),

@@ -3,8 +3,9 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""The import guards. Benchmark code imports the framework's public modules only; agents import the
-session only; nothing here imports Isaac Sim at module level except the two entry points."""
+"""The import guards. Benchmark code imports the framework's public modules only, by their exact
+names; only the reference agents (``foragebench/agents``) import the robot tests' routines, and they
+import the session too; nothing here imports Isaac Sim at module level except the two entry points."""
 
 from __future__ import annotations
 
@@ -18,15 +19,14 @@ ROOT = Path(__file__).resolve().parents[1]
 PACKAGE = ROOT / "foragebench"
 AGENTS = PACKAGE / "agents"
 ENTRY_POINTS = {"run.py", "suite.py"}
-# What benchmark code may take from PhyGS: the public framework modules.
-PHYGS_PUBLIC = (
+# What benchmark code may take from PhyGS: the public framework modules, exactly these names.
+PHYGS_PUBLIC = {
     "phygs.session",  # What agents get.
-    "phygs.world",  # What a benchmark drives (PhyGS docs/world.md).
+    "phygs.world",  # What a benchmark drives (PhyGS docs/world.md); never its submodules.
     "phygs.scene.registry",  # Scenes by id.
     "phygs.robots.description",
-    "phygs_robot_tests.routines",
     "phygs",  # The bare package, for its version only.
-)
+}
 AGENT_ALLOWED = (
     "phygs.session",
     "phygs_robot_tests.routines",
@@ -34,8 +34,6 @@ AGENT_ALLOWED = (
     "numpy",
     "yaml",
     "foragebench.agents.model",
-    "torch",  # The model orchestrators' optional dependencies, imported lazily.
-    "transformers",
     "PIL",
     "requests",  # The OpenAI-compatible client.
 )
@@ -60,9 +58,12 @@ def ok(name: str, heads: tuple[str, ...]) -> bool:
 
 @pytest.mark.parametrize("path", sorted(PACKAGE.rglob("*.py")), ids=lambda p: str(p.relative_to(PACKAGE)))
 def test_benchmark_code_imports_only_phygs_public_modules(path):
+    in_agents = AGENTS in path.parents
     for name in imported(path):
-        if name.startswith("phygs"):
-            assert ok(name, PHYGS_PUBLIC), f"{path.relative_to(ROOT)} imports {name}"
+        if name.startswith("phygs_robot_tests"):
+            assert in_agents, f"{path.relative_to(ROOT)} imports the robot tests ({name}); only agents may"
+        elif name.startswith("phygs"):
+            assert name in PHYGS_PUBLIC, f"{path.relative_to(ROOT)} imports {name}, not a public PhyGS module"
         if name.startswith("isaaclab") or name.startswith("omni"):
             assert path.name in ENTRY_POINTS, f"{path.relative_to(ROOT)} imports Isaac Sim ({name})"
 

@@ -19,7 +19,7 @@ from pathlib import Path
 
 import yaml
 from phygs.scene.registry import scene_file
-from phygs.world.spec import EpisodeSpec
+from phygs.world import EpisodeSpec
 
 import foragebench
 from foragebench.agents import load_agent

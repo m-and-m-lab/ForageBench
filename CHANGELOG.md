@@ -4,6 +4,27 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Changed (2026-11-01)
+
+- Pinned PhyGS 0.9.0 (`World(target=...)`, `Truth.lifted_near_wrist`, the evaluator gets the grasp contacts, the settings hash in every report). A benchmark version change.
+- **SPL-M counts in one unit.** `result.manipulations` is now how many times the gripper held a body (a drawer handle, an object; `eval/results.py` `grasps`, from the report's `grasp_contacts`), the unit of the episodes' `optimal.manipulations`. Before, it counted every manipulation command (stows, looks, gripper moves), so SPL-M compared two units; do not pool SPL-M from earlier results. The command count is `manipulation_commands`.
+- The summary reports `finishes` and `false_finishes`: runs the agent ended itself, and how many of those the evaluator did not confirm.
+- An agent's `prepare` and the settings step run inside the run's error handling, so a failure there still writes `result.json`.
+- The rules no longer name a navigation backend that was never passed to PhyGS (Nav2 is its only one).
+
+### Removed (2026-11-01)
+
+- `agents/model/qwen3_vl.py` and `FORAGEBENCH_ORCHESTRATOR=qwen3_vl`: the in-process Qwen client had no pointing query, so every pointing skill was refused. Qwen runs through vLLM and the OpenAI-compatible client.
+
+### Changed (2026-10-31)
+
+- Every result names what produced it: `agent_setup` is the agent's `agent/model.json` (model, server, pointing, thinking, budgets) with its hash, or null for an agent that writes none.
+- `foragebench run` passes the episode's answer target to the World (`World(target=...)`, PhyGS 0.9.0); the track's grants decide what the agent learns.
+- The benchmark imports only PhyGS's public modules by name (`phygs.world`, never its submodules); only the reference agents import the robot tests' routines (`tests/test_imports.py`).
+- The evaluator reads `Truth.lifted_near_wrist` (the measurement formerly called `held`); the rules are unchanged.
+- `foragebench scenes fetch` names the scene dataset (`--repo_id mandmlabresearch/ForageBench`); the grid episodes' scene is built into PhyGS (`phygs/scene/builtin`).
+- The model prompts are package data; `requests` is a declared dependency.
+
 ### Added (stage 4, 2026-10-30)
 
 - Repeats in one process: `foragebench run --repeats N` runs N seeds in one simulator process (PhyGS 0.8.0's `World.next_episode`), each in `<output>/s<seed>`, and every result names `episode_in_process`. `foragebench suite` runs each episode's repeats in one process (`--fresh` for one process per run); `results` reads the `s<seed>` folders.

@@ -7,7 +7,7 @@ sets:
   dev:
     - id: grid_table
       file: dev/grid_table.yaml
-      scene: grid_storage        # A PhyGS fixture scene (tests/robot_tests/scenes), no download.
+      scene: grid_storage        # A scene built into PhyGS (phygs/scene/builtin), no download.
     - id: grid_drawer
       file: dev/grid_drawer.yaml
       scene: grid_storage

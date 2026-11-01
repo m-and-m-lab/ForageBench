@@ -8,7 +8,7 @@ takes (:class:`phygs.world.task.Task`): today ``retrieve`` only."""
 
 from __future__ import annotations
 
-from phygs.world.task import NoTask, Task
+from phygs.world import NoTask, Task
 
 from foragebench.tasks.retrieve import RetrieveTask
 

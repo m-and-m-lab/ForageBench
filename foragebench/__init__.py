@@ -5,8 +5,9 @@
 
 """ForageBench: a benchmark for interactive object search on the PhyGS simulation framework.
 
-The benchmark imports ``phygs`` (the framework) and ``phygs_robot_tests.routines`` (for the oracle);
-PhyGS never imports the benchmark. A benchmark version pins a PhyGS version
+The benchmark imports PhyGS's public surfaces (``phygs.world``, ``phygs.session``, ``phygs.scene``,
+``phygs.robots``); only its reference agents (``foragebench.agents``) also import the robot tests'
+routines (``phygs_robot_tests``). PhyGS never imports the benchmark. A benchmark version pins a PhyGS version
 (``configs/benchmark_v1.yaml``); :func:`check_phygs_version` refuses to run against another.
 """
 
@@ -31,5 +32,5 @@ def check_phygs_version(expected: str) -> None:
     if found != str(expected):
         raise RuntimeError(
             f"ForageBench pins PhyGS {expected} (configs/benchmark_v1.yaml) but phygs {found} is installed;"
-            " install third_party/phygs at the pinned tag (make install)."
+            " install third_party/phygs at the pinned tag (docs/install.md)."
         )

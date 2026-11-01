@@ -24,6 +24,8 @@ from phygs.scene.registry import scene_file
 
 ROOT = Path(__file__).resolve().parents[2]
 
+DATASET = "mandmlabresearch/ForageBench"  # The scene dataset on Hugging Face (private for now).
+
 
 @dataclass(frozen=True)
 class SceneNeed:
@@ -63,6 +65,8 @@ def fetch(need: SceneNeed) -> int:
         "-m",
         "phygs.scene.fetch",
         "fetch",
+        "--repo_id",
+        DATASET,
         "--scene_id",
         need.id,
         "--scene_version",

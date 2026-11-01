@@ -9,9 +9,9 @@ description = "ForageBench: a photorealistic, physically grounded benchmark for 
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Mapping and Motion Lab, University of Michigan" }]
-# PhyGS is the git submodule at third_party/phygs, installed by `make install`; it is the pin.
+# PhyGS is the git submodule at third_party/phygs, installed with `pip install -e third_party/phygs`; it is the pin.
 # Isaac Sim, Isaac Lab, torch, numpy and yaml come from the Isaac Lab container.
-dependencies = []
+dependencies = ["requests"]  # The rest (PhyGS, Isaac Lab, torch, numpy, yaml) comes with the container.
 
 [project.scripts]
 foragebench = "foragebench.__main__:main"
@@ -24,7 +24,7 @@ Repository = "https://github.com/m-and-m-lab/ForageBench"
 include = ["foragebench", "foragebench.*"]
 
 [tool.setuptools.package-data]
-"foragebench" = ["tracks/*.yaml", "episodes/*.yaml", "episodes/**/*.yaml", "tasks/**/*.yaml"]
+"foragebench" = ["tracks/*.yaml", "episodes/*.yaml", "episodes/**/*.yaml", "tasks/**/*.yaml", "agents/model/prompts/*.md"]
 
 [tool.ruff]
 line-length = 120

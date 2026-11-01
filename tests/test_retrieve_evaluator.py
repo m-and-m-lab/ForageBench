@@ -54,7 +54,7 @@ class FakeTruth:
         pose[2, 2] = self.state["up_cos"]
         return pose
 
-    def held(self, name, *, lift_m, reach_m):
+    def lifted_near_wrist(self, name, *, lift_m, reach_m):
         self.asked = (name, lift_m, reach_m)
         return self.state["held"]
 

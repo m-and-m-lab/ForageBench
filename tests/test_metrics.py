@@ -131,3 +131,28 @@ def test_an_episodes_repeats_in_one_process_are_read_from_their_seed_folders(tmp
     summary = summarize(tmp_path)
     assert summary["runs"] == 3 and summary["groups"][0]["success_rate"] == pytest.approx(2 / 3)
     assert summary["not_scored"]["error"] == [dict(run="dev_grid_table/s3", reason="no result.json")]
+
+
+def test_grasps_count_holds_of_a_body_not_jaw_links_or_commands():
+    from foragebench.eval.results import grasps
+
+    jaws = lambda body, first, last: [  # noqa: E731 - one entry per jaw link, as the report writes them.
+        dict(body=body, link="arm_link_fngr", first_s=first, last_s=last),
+        dict(body=body, link="arm_link_wr1", first_s=first + 0.02, last_s=last - 0.02),
+    ]
+    assert grasps([]) == 0
+    assert grasps(jaws("drawer", 10.0, 14.0) + jaws("target", 30.0, 60.0)) == 2  # Open, then pick.
+    assert grasps(jaws("target", 30.0, 31.0) + jaws("target", 40.0, 50.0)) == 2  # A second try on the target.
+
+
+def test_the_summary_counts_finishes_the_evaluator_did_not_confirm(tmp_path):
+    write_runs(
+        tmp_path,
+        {
+            "a": run(ended_by="finish"),
+            "b": run(ended_by="finish", outcome="failure"),  # The agent said done; the target was not held.
+            "c": run(ended_by="budget", outcome="failure"),
+        },
+    )
+    group = summarize(tmp_path)["groups"][0]
+    assert (group["finishes"], group["false_finishes"]) == (2, 1)

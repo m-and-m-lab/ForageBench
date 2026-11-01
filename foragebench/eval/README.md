@@ -6,7 +6,7 @@ Run episodes and summarize results.
 | --- | --- | --- |
 | `foragebench describe --episode dev/grid_table --track privileged --agent oracle` | `describe.py` | What the run would do, without the simulator; exit 1 if it would be refused (PhyGS version, missing scene). |
 | `foragebench run --episode dev/grid_table --track privileged --agent oracle --output DIR` | `run.py` | One episode in one simulator process; writes `DIR/result.json` beside PhyGS's `report.json` and `audit.jsonl`. |
-| `foragebench suite --set dev --track privileged --agent oracle --repeats 5 --output DIR` | `suite.py` | Every episode of a set, `repeats` seeds each, one process per run; `DIR/summary.json` and a table. |
+| `foragebench suite --set dev --track privileged --agent oracle --repeats 5 --output DIR` | `suite.py` | Every episode of a set, `repeats` seeds each, one process per episode (`--fresh`: one per run); `DIR/summary.json` and a table. |
 | `foragebench results DIR` | `results.py` | The numbers below from the `result.json` files under a folder; writes `DIR/summary.json`. |
 
 All run from the Isaac Lab root with `./isaaclab.sh -p -m foragebench <command>`.
