@@ -31,6 +31,8 @@ The `main` branch is the May 2026 beta. The `develop` branch is the benchmark de
 
 **The task: retrieve.** The agent is told what to find ("the small green box"), never where. It succeeds when, at the end of the episode, the target is in its hand (measured, not assumed), the arm is stowed, the robot is upright and the budget was not exceeded. Nothing else counts: not standing next to the target, not a skill's "succeeded". **Conduct** is reported beside success, never folded into it: unintended arm contacts with their peak force, drawers left open; a run is `clean` when it has none. Also reported: SPL and SPL-M, skill execution success, the path walked, the time used. Everything is read from PhyGS's ground truth once, after the robot has stopped and settled. Details: [tasks/](foragebench/tasks/README.md), [eval/](foragebench/eval/README.md), the [task card](docs/task_card.md) for what is and is not claimed.
 
+**The question v1 answers.** Given reliable walking, picking and drawer skills (PhyGS's composite skills), can a model find and retrieve the requested object in a home it has not seen, and when it fails, is it because of where it searched, what it chose, or what it pointed at? The oracle (the skills on true affordances) and the pointing oracle (perfect points through the harness's estimator) are measured beside every model as its ceilings.
+
 ## 📦 What's in this repository
 
 Each folder has its own README; start there.

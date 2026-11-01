@@ -16,7 +16,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-import phygs_robot_tests.routines as routines
 
 from foragebench.agents.model import perception
 from foragebench.agents.model.orchestrator import Observation, Orchestrator, SkillCall
@@ -84,7 +83,6 @@ def run_loop(session, orchestrator: Orchestrator, config: LoopConfig | None = No
     if "object_targets" in session.grants:  # The known-target condition: a track grants it.
         hint = session.hints.target()
         target = tuple(float(v) for v in hint.center)
-    routines.use_robot(session.robot)  # The skills' motions read the robot's tools and arm.
     orchestrator.reset(session.task.description, target)
     history: list[SkillResult] = []
     for _ in range(config.max_calls):

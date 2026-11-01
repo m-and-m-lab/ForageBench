@@ -9,7 +9,7 @@ How contributors and coding agents work in this repository. ForageBench is a ben
 | PhyGS (`third_party/phygs`, submodule) | The robot, the world, the runtime, the skills, the measurement, the scenes | Names a task; imports ForageBench |
 | ForageBench (this) | Tasks, tracks, episodes, evaluators, reference agents, results | Imports PhyGS internals; edits files under `third_party/phygs` |
 
-`tests/test_imports.py` enforces the import side: benchmark code imports `phygs.session`, `phygs.world` (never its submodules), `phygs.scene.registry` and `phygs.robots.description` only; only the reference agents (`foragebench/agents/`) import the robot tests' routines (`phygs_robot_tests`).
+`tests/test_imports.py` enforces the import side: benchmark code imports `phygs.session`, `phygs.composite`, `phygs.world` (never its submodules), `phygs.scene.registry` and `phygs.robots.description` only, and never the robot tests (`phygs_robot_tests`); the reference agents (`foragebench/agents/`) import only the session and the composite skills of PhyGS.
 
 ## Submodule rules
 

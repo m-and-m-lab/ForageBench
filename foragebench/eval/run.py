@@ -151,7 +151,7 @@ def main() -> int:
     done, code = 0, 0
     try:
         if prepare is not None:
-            prepare(spec, robot)  # The oracle's routines learn the scene and the robot.
+            prepare(spec, robot)  # An agent that needs the spec and the robot before the episode.
         overrides = benchmark_overrides()
         with World(
             spec.with_seed(SEEDS[0]),

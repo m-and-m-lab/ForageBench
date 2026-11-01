@@ -5,9 +5,9 @@
 
 """ForageBench: a benchmark for interactive object search on the PhyGS simulation framework.
 
-The benchmark imports PhyGS's public surfaces (``phygs.world``, ``phygs.session``, ``phygs.scene``,
-``phygs.robots``); only its reference agents (``foragebench.agents``) also import the robot tests'
-routines (``phygs_robot_tests``). PhyGS never imports the benchmark. A benchmark version pins a PhyGS version
+The benchmark imports PhyGS's public surfaces (``phygs.world``, ``phygs.session``,
+``phygs.composite``, ``phygs.scene``, ``phygs.robots``), never its robot tests. PhyGS never imports
+the benchmark. A benchmark version pins a PhyGS version
 (``configs/benchmark_v1.yaml``); :func:`check_phygs_version` refuses to run against another.
 """
 

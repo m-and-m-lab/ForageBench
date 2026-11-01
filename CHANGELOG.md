@@ -4,6 +4,16 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Changed (2026-11-01, composite skills)
+
+- The reference agents use PhyGS's composite skills (`phygs.composite`, PhyGS 0.10.0) instead of the robot tests' routines: the oracle on the true affordances from the hints, the model harness's skills on the affordances its estimator (`agents/model/perception.py`) measures. Stances are computed from the drawer or the target, so the oracle needs no per-scene stance file; the table stance faces the target along the line from the robot. Benchmark code no longer imports `phygs_robot_tests` (`tests/test_imports.py`). Needs the PhyGS pin moved to 0.10.0: a benchmark version change.
+- The gripper reads a box held by its edge as held (PhyGS 0.10.0 `hold_tolerance`): the pointing oracle's house-drawer failure of 2026-10-30.
+- The task card and README state the question v1 answers and its ceilings (the oracle, the pointing oracle, the noise floor).
+
+### Removed (2026-11-01, composite skills)
+
+- `prepare(spec, robot)` of `agents/oracle.py` and `agents/pointing_oracle.py`: the composite skills read the robot from the session and need no scene data. `foragebench run` still calls an agent's `prepare` when it has one.
+
 ### Changed (2026-11-01)
 
 - Pinned PhyGS 0.9.0 (`World(target=...)`, `Truth.lifted_near_wrist`, the evaluator gets the grasp contacts, the settings hash in every report). A benchmark version change.

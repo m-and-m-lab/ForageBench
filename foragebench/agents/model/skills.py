@@ -8,8 +8,9 @@
 A model points: most skills take a camera and a pixel (``u`` column from the left, ``v`` row from
 the top) in the images it was just shown, and :mod:`.perception` turns the pixel into a world point
 with that capture's depth. Nothing here is privileged: no object names, boxes or drawer parts. The
-motions are PhyGS's robot tests' routines (planned approaches, straight end-effector lines, the
-drawer stroke), driven with what the robot's cameras measured instead of what the scene knows.
+motions are PhyGS's composite skills (``phygs.composite``: stances, picks, drawer strokes), given
+the affordances the robot's cameras measured (:mod:`.perception`, the estimator) instead of what
+the scene knows.
 
 Each skill returns (status, reason): the session's own status, ``refused`` when the arguments could
 not be used (a pixel without depth, a skill the track does not allow), or ``done``.
@@ -19,13 +20,11 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
-import phygs_robot_tests.routines as routines
-from phygs.session import AgentFailed, ArticulatedPart, HeldObject, PointTarget
-from phygs_robot_tests.routines import arm, base, drawer
+from phygs.composite import CompositeSkills
+from phygs.session import AgentFailed, ArticulatedPart
 
 from foragebench.agents.model import perception
 from foragebench.agents.model.perception import PointingError
@@ -35,7 +34,6 @@ from foragebench.agents.model.perception import PointingError
 # pick steps the last bit itself.
 STANDOFF_M = 1.05
 STEP_M = 0.6  # pick: steps at most this far [m] to stand where the object is in reach.
-UNSTICK_M = 0.10  # stow: lift the hand this far [m] when no stow plan starts from where the arm is.
 PULL_M = 0.25  # open_drawer / close_drawer: stroke length [m], shortened to stay within reach.
 HANDLE_RADIUS_M = 0.01  # A handle bar's radius [m]: the depth return is its front, the bar axis behind.
 UP = np.array([0.0, 0.0, 1.0])
@@ -90,35 +88,23 @@ def _base_xy(seen) -> np.ndarray:
     return _base_pose(seen)[:2, 3]
 
 
-# The object a pick estimated from depth, per session, while the gripper holds it: the arm's later
-# plans (stow, look_at) carry it as part of the robot, and the planner's depth leaves it out.
-_HELD: dict[int, HeldObject] = {}
+# The composite skills per session: they keep the object a pick estimated from depth, which the
+# arm's later plans (stow, look_at) carry as part of the robot while the gripper holds it.
+_COMPOSITE: dict[int, CompositeSkills] = {}
 
 
-def _held(session) -> HeldObject | None:
-    return _HELD.get(id(session)) if session.manipulation.holding else None
-
-
-def _stow(session) -> tuple[str, str]:
-    """Stow, carrying the held object. When no plan starts from where the arm is (a hand that ended
-    by a surface the depth map holds, 2026-10-30), lift the hand straight up and try once more."""
-    status, reason = _wait(session, session.manipulation.stow(held=_held(session)))
-    if status == "succeeded" or "planner failed" not in reason.lower():
-        return status, reason
-    if arm.move_straight(session, UP, UNSTICK_M).status != "succeeded":
-        return status, reason
-    return _wait(session, session.manipulation.stow(held=_held(session)))
+def composite(session) -> CompositeSkills:
+    """The session's composite skills (one per session)."""
+    if id(session) not in _COMPOSITE:
+        _COMPOSITE[id(session)] = CompositeSkills(session)
+    return _COMPOSITE[id(session)]
 
 
 def _stow_to_walk(session) -> None:
     """Stow the arm (holding or not) unless it is stowed: the base walks with the arm folded."""
-    joints = session.observe().joints
-    measured = dict(zip(joints.names, perception.array(joints.positions).tolist(), strict=True))
-    stow = routines.ARM["stow"]
-    if max(abs(measured[j] - v) for j, v in zip(routines.ARM["joints"], stow)) > routines.PARAMS["stow_tolerance_rad"]:
-        status, reason = _stow(session)
-        if status != "succeeded":
-            raise AgentFailed(f"stowing the arm to walk: {reason}")
+    skills = composite(session)
+    if not skills.stowed():
+        skills.stow()
 
 
 def _walk_near(session, seen, point, standoff: float, facing=None) -> tuple[str, str]:
@@ -168,64 +154,48 @@ def turn(session, seen, yaw_rate: float, seconds: float) -> tuple[str, str]:
 
 
 def look_at(session, seen, camera: str, u: float, v: float) -> tuple[str, str]:
-    """Aim the hand camera at the pixel's world point from the robot tests' views, in turn, until one
-    is reachable from where the base stands."""
-    target = PointTarget(tuple(map(float, perception.world_point(seen, camera, u, v))))
-    last = "no view"
-    for distance_m, elevation_deg in routines.PARAMS["look_views"]["target"]:
-        feedback = session.wait(
-            session.manipulation.look_at(
-                target, distance_m=distance_m, elevation_deg=elevation_deg, held=_held(session)
-            )
-        )
-        if feedback.status == "succeeded":
-            return "succeeded", feedback.reason
-        if getattr(feedback, "failure", None) not in arm.LOOK_REFUSED:
-            return feedback.status, feedback.reason
-        last = feedback.reason
-    return "failed", f"no view of it was reachable from here ({last}); move the base"
+    """Aim the hand camera at the pixel's world point from the composite skills' views, in turn,
+    until one is reachable from where the base stands."""
+    looked = composite(session).look_at(perception.world_point(seen, camera, u, v), "target")
+    if looked.succeeded:
+        return "succeeded", f"looking from {looked.option['distance_m']} m at {looked.option['elevation_deg']} deg"
+    return "failed", f"{looked.reason}; move the base"
 
 
 def _step_to_reach(session, seen, point) -> None:
-    """Stand with ``point`` the robot tests' ``reach_in_ahead_m`` straight ahead of the base centre
+    """Stand with ``point`` the composite skills' ``reach_ahead_m`` straight ahead of the base centre
     (where their picks work, on tables and in drawers): keeping the heading when it faces the point
     within 45 deg (square to an open drawer), else turning to face it. Steps at most ``STEP_M``."""
+    skills = composite(session)
     pose = _base_pose(seen)
     here, forward = pose[:2, 3], pose[:2, 0] / np.linalg.norm(pose[:2, 0])
     offset = np.asarray(point[:2], dtype=float) - here
     ahead, side = float(offset @ forward), float(forward[0] * offset[1] - forward[1] * offset[0])
-    reach, tolerance = routines.PARAMS["reach_in_ahead_m"], routines.PARAMS["goal_tolerance"][0] + 0.01
+    reach, tolerance = skills.tuning.reach_ahead_m, skills.tuning.goal_tolerance[0] + 0.01
     if abs(ahead - reach) <= tolerance and abs(side) <= tolerance:
         return
     if ahead < np.linalg.norm(offset) * np.cos(np.radians(45.0)):
         forward = offset / np.linalg.norm(offset)
-    goal = np.asarray(point[:2], dtype=float) - forward * reach
-    if np.linalg.norm(goal - here) > STEP_M:
-        raise PointingError(f"it is {np.linalg.norm(goal - here):.1f} m from where it can be reached: go_to it first")
-    _stow_to_walk(session)
-    base.walk(session, (float(goal[0]), float(goal[1]), float(np.arctan2(forward[1], forward[0]))))
-    session.sleep(routines.PARAMS["settle_seconds"])
+    stance = skills.reach_stances(point, facing=forward)[-1]
+    if np.linalg.norm(np.asarray(stance[:2]) - here) > STEP_M:
+        away = np.linalg.norm(np.asarray(stance[:2]) - here)
+        raise PointingError(f"it is {away:.1f} m from where it can be reached: go_to it first")
+    skills.walk(stance)
 
 
 def _look_down_at(session, point) -> bool:
-    """Aim the look camera at a point from the steepest of the robot tests' target views that is
+    """Aim the look camera at a point from the steepest of the composite skills' target views that is
     reachable (from above, a drawer's front hides less of what is inside)."""
-    views = sorted(routines.PARAMS["look_views"]["target"], key=lambda view: -view[1])
-    for distance_m, elevation_deg in views:
-        feedback = session.wait(
-            session.manipulation.look_at(
-                PointTarget(tuple(map(float, point))), distance_m=distance_m, elevation_deg=elevation_deg
-            )
-        )
-        if feedback.status == "succeeded":
-            return True
-        if getattr(feedback, "failure", None) not in arm.LOOK_REFUSED:
-            return False
-    return False
+    skills = composite(session)
+    views = sorted(skills.tuning.look_views["target"], key=lambda view: -view[1])
+    try:
+        return skills.look_at(point, views).succeeded
+    except AgentFailed:  # Failed while moving: keep the first measurement.
+        return False
 
 
 def pick(session, seen, camera: str, u: float, v: float) -> tuple[str, str]:
-    """The robot tests' pick on the object at the pixel as the depth measures it (a box from its top
+    """The composite pick on the object at the pixel as the depth measures it (a box from its top
     down to the surface it stands on): step to where it is in reach, look down at it and measure it
     again from there, then each approach (straight down first) and grasp yaw in turn, straight in,
     close, straight back out."""
@@ -243,8 +213,7 @@ def pick(session, seen, camera: str, u: float, v: float) -> tuple[str, str]:
                 center, size = perception.object_box(view, look, *pixel)
         except PointingError:  # Keep the first measurement.
             pass
-    target = SimpleNamespace(name=None, center=tuple(map(float, center)), size=tuple(map(float, size)))
-    _HELD[id(session)] = arm.pick(session, target, look=False)
+    composite(session).pick(center, size, look=False)
     return "succeeded", f"holding it (about {size[0]:.2f} x {size[1]:.2f} x {size[2]:.2f} m)"
 
 
@@ -265,40 +234,15 @@ def _drawer_part(seen, camera: str, u: float, v: float) -> ArticulatedPart:
     )
 
 
-def _stand_at(session, part: ArticulatedPart, ahead: float) -> None:
-    """Walk to face the drawer front with its handle ``ahead`` [m] in front of the base centre, and
-    stand while the legs settle (the routines' open stance, on the measured drawer)."""
+def _stroke(session, part: ArticulatedPart, kind: str) -> tuple[str, str]:
+    """The composite drawer stroke on the measured drawer: stand in front of it, then pull it (open)
+    or push it (close) ``PULL_M``, keeping the handle within the grip range ahead of the base."""
     if session.navigation is None:
         raise PointingError("this track has no navigation client to stand at the drawer")
-    out = np.asarray(part.direction[:2], dtype=float)
-    x, y = np.asarray(part.handle_center[:2], dtype=float) + out * ahead
-    _stow_to_walk(session)
-    base.walk(session, (float(x), float(y), perception.heading_to((x, y), part.handle_center)))
-    session.sleep(routines.PARAMS["settle_seconds"])
-
-
-def _stroke(session, part: ArticulatedPart, kind: str) -> tuple[str, str]:
-    """Stand in front of the drawer, then pull it (open) or push it (close) ``PULL_M``, keeping the
-    handle within ``grip_range_m`` ahead of the base: an opening starts at the far end, a closing
-    ``PULL_M`` nearer. When every way to take the handle is refused (the base stopped at the far
-    edge of its tolerance), stand again one tolerance nearer, up to ``stance_tries`` stances."""
-    near, far = routines.PARAMS["grip_range_m"]
-    tolerance = routines.PARAMS["goal_tolerance"][0]
-    for attempt in range(routines.PARAMS["stance_tries"]):
-        _stand_at(session, part, far - tolerance * (1 + attempt) - (PULL_M if kind == "close" else 0.0))
-        where = _base_xy(session.observe())
-        ahead = float(np.dot(np.asarray(part.handle_center[:2]) - where, -np.asarray(part.direction[:2])))
-        length = PULL_M if kind == "close" else min(PULL_M, ahead - near)
-        if length < 0.05:
-            return "refused", "the handle is too close to the body to pull"
-        moved = drawer.stroke(session, part, kind, length)
-        if moved is not None:
-            break
-    else:
-        return "failed", "every way to take the handle was out of reach or blocked from here"
-    if moved.status != "succeeded":
-        return moved.status, moved.reason
-    return "succeeded", f"moved the drawer {length:.2f} m"
+    skills = composite(session)
+    stroke = skills.open_drawer if kind == "open" else skills.close_drawer
+    moved = stroke(part, distance=PULL_M)
+    return "succeeded", f"moved the drawer {moved.measured['moved_m']:.2f} m"
 
 
 def open_drawer(session, seen, camera: str, u: float, v: float) -> tuple[str, str]:
@@ -314,7 +258,8 @@ def close_drawer(session, seen, camera: str, u: float, v: float) -> tuple[str, s
 
 
 def stow(session, seen) -> tuple[str, str]:
-    return _stow(session)
+    stowed = composite(session).stow()
+    return "succeeded", "stowed" + (" after lifting the hand" if stowed.option["how"] != "stow" else "")
 
 
 def done(session, seen) -> tuple[str, str]:
