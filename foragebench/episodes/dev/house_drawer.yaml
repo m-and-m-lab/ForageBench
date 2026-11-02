@@ -1,5 +1,5 @@
-# ForageBench dev episode (manifest v0): retrieve the box from the kitchen island's bottom drawer (closed at the start; the
-# file has the box there).
+# ForageBench dev episode (manifest v0): retrieve the bottle from the kitchen island's bottom drawer (closed at the start;
+# the file has the bottle there, beside a flat printed box, item_0).
 schema: 3
 id: house_drawer
 scene:
@@ -14,7 +14,7 @@ record_view: {eye: [13.5, 4.6, 2.3], target: [11.2, 6.3, 0.6]}  # Clear line of 
 # What the agent is told (the session gets goal and description, nothing else).
 task:
   goal: retrieve
-  description: the small cardboard box
+  description: the dark bottle  # A sealed bottle (the scene's collision_model); not the box beside it.
 observations:
   camera_roles: [planning]  # The robot's arm-planning cameras (Spot: frontleft, frontright, hand).
   joint_state: true
@@ -25,6 +25,9 @@ seed: 0
 # Hidden: the evaluator reads it, and the oracle through the privileged track's grants; never the agent.
 answer:
   target: kitchen_island_compartment_0_item_1  # The scene name of the object to retrieve.
+  # The same bottle (one mesh and its materials, scaled to 6.5 x 6.5 x 18 cm of the target's 5 x 5 x 15 cm)
+  # stands in three more places; the description fits them as well, so holding one counts.
+  matches: [kitchen_island_tier_2_compartment_0_item_0, kitchen_base_1_compartment_0_item_0, wet_bar_1_compartment_0_item_0]
 optimal:  # The SPL and SPL-M denominators.
   path_length_m: null  # Until episodes state it (SPL is then not reported).
   manipulations: 2  # Open the drawer, pick.

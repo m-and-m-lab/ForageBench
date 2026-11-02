@@ -12,13 +12,15 @@ and :meth:`RetrieveTask.result` once after the robot has stopped (every command 
 kept) and settled. The agent never holds it. The thresholds are in ``thresholds.yaml`` beside this
 file, with a version every result names; the file is hashed into the report's provenance.
 
-The result has parts that are never merged:
+"The target" below is the answer's target or any of its ``matches``: objects the description fits as
+well (identical bottles in one house), so holding any of them is retrieving what the agent was asked
+for. The result has parts that are never merged:
 
 - **outcome**: the target is held (lifted, at the wrist, every jaw pressing on it), the arm is
   stowed, the robot is upright and the episode ended within its budget.
 - **reached**: the base ended near the target, or holds it.
 - **progress**: how far the run got, from the samples: reached, opened (the drawer the target started
-  in), touched, lifted, held. It says where an agent failed.
+  in; none when it started open), touched, lifted, held. It says where an agent failed.
 - **conduct**: what happened on the way, beside the outcome: unintended arm contact (the squeeze on a
   grasped body excluded), drawers left open, other objects moved. A successful episode with conduct
   findings is ``success`` with ``clean: false``.
@@ -85,14 +87,18 @@ def rules_version(path: Path = THRESHOLDS) -> int:
 
 class RetrieveTask:
     """Retrieve one object: ``description`` is public (what the agent is told), ``target`` is the
-    object's scene name (the episode's hidden answer)."""
+    object's scene name (the episode's hidden answer). ``matches``: other objects the description
+    fits as well (identical bottles); holding any one of them counts, and progress follows them all."""
 
     goal = "retrieve"
 
-    def __init__(self, description: str, target: str, thresholds: dict | None = None) -> None:
-        if not description or not target:
-            raise ValueError("A retrieve task needs a description and the target's name.")
+    def __init__(
+        self, description: str, target: str, thresholds: dict | None = None, matches: tuple[str, ...] = ()
+    ) -> None:
+        if not description or not target or not all(matches) or target in matches:
+            raise ValueError("A retrieve task needs a description, the target's name and other names as matches.")
         self.description, self.target = description, target
+        self.targets = (target, *dict.fromkeys(matches))
         self.thresholds = load_thresholds() if thresholds is None else dict(thresholds)
         # The file's rules carry its version; other numbers (a test's) have none.
         self.rules_version = rules_version() if self.thresholds == load_thresholds() else None
@@ -110,13 +116,13 @@ class RetrieveTask:
         return {"evaluator_thresholds": hashlib.sha256(text).hexdigest()}
 
     def reset(self, truth: GroundTruth) -> None:
-        """The settled world before the agent starts: drawer openings, where the target and the
-        other bodies are, the drawer the target is in, the base's position."""
+        """The settled world before the agent starts: drawer openings, where the targets and the
+        other bodies are, the drawer each target is in, the base's position."""
         self._start = dict(
             openings=truth.part_openings(),
             motion=truth.body_motion(),
-            target_z=float(truth.object_pose(self.target)[2, 3]),
-            hidden_in=truth.started_inside(self.target),
+            target_z={name: float(truth.object_pose(name)[2, 3]) for name in self.targets},
+            hidden_in={name: truth.started_inside(name) for name in self.targets},
         )
         self._last_xy = truth.base_pose()[:2, 3].copy()
         self._path_m = 0.0
@@ -128,14 +134,23 @@ class RetrieveTask:
         xy = truth.base_pose()[:2, 3]
         self._path_m += float(np.linalg.norm(xy - self._last_xy))
         self._last_xy = xy.copy()
-        target = truth.object_pose(self.target)[:3, 3]
-        progress["reached"] |= float(np.linalg.norm(target[:2] - xy)) <= t["near_target_m"]
-        hidden_in = self._start["hidden_in"]
-        if hidden_in is not None:
-            progress["opened"] |= truth.part(hidden_in).opening > t["opened_m"]  # One drawer, not all of them.
+        for name in self.targets:
+            target = truth.object_pose(name)[:3, 3]
+            progress["reached"] |= float(np.linalg.norm(target[:2] - xy)) <= t["near_target_m"]
+            progress["lifted"] |= float(target[2]) - self._start["target_z"][name] >= t["held_lift_m"]
+        for drawer in self._closed_drawers():  # A target's drawer, not every drawer.
+            progress["opened"] |= truth.part(drawer).opening > t["opened_m"]
         if not progress["touched"]:
-            progress["touched"] = any(body == self.target for _, body, _ in truth.arm_contacts(t["contact_n"]))
-        progress["lifted"] |= float(target[2]) - self._start["target_z"] >= t["held_lift_m"]
+            progress["touched"] = any(body in self.targets for _, body, _ in truth.arm_contacts(t["contact_n"]))
+
+    def _closed_drawers(self) -> set[str]:
+        """The drawers a target started in that were closed (an open one needs no opening)."""
+        start = self._start
+        return {
+            drawer
+            for drawer in start["hidden_in"].values()
+            if drawer is not None and start["openings"].get(drawer, 0.0) <= self.thresholds["opened_m"]
+        }
 
     def result(self, truth: GroundTruth, end) -> dict:
         """Score the settled end state (the last sample too). ``end`` is PhyGS's ``EpisodeEnd``: how
@@ -144,21 +159,29 @@ class RetrieveTask:
             raise RuntimeError("result() before reset(): the World resets the task before the agent starts.")
         self.update(truth)
         t, start = self.thresholds, self._start
-        pinched = truth.pinched(self.target, t["jaw_contact_n"])
+        held = [
+            name
+            for name in self.targets
+            if truth.lifted_near_wrist(name, lift_m=t["held_lift_m"], reach_m=t["held_reach_m"])
+            and truth.pinched(name, t["jaw_contact_n"])
+        ]
+        chosen = held[0] if held else self.target  # The object measured below: the one held, else the target.
+        pinched = truth.pinched(chosen, t["jaw_contact_n"])
         checks = dict(
-            held=truth.lifted_near_wrist(self.target, lift_m=t["held_lift_m"], reach_m=t["held_reach_m"]) and pinched,
+            held=bool(held),
             stowed=truth.stow_error_rad() <= t["stow_tolerance_rad"],
             upright=float(truth.base_pose()[2, 2]) >= t["upright_min_cos"],
             in_time=end.ended_by in ENDED_IN_TIME,
         )
         failed = [name for name, ok in checks.items() if not ok]
-        target = truth.object_pose(self.target)[:3, 3]
-        distance = float(np.linalg.norm(target[:2] - truth.base_pose()[:2, 3]))
+        target = truth.object_pose(chosen)[:3, 3]
+        base = truth.base_pose()[:2, 3]
+        distance = min(float(np.linalg.norm(truth.object_pose(name)[:2, 3] - base)) for name in self.targets)
         reached = checks["held"] or distance <= t["near_target_m"]
         progress = dict(self._progress, held=checks["held"])
         progress["reached"] |= reached
-        if start["hidden_in"] is None:
-            progress["opened"] = None  # Nothing to open: the target started in the open.
+        if not self._closed_drawers():
+            progress["opened"] = None  # Nothing to open: the targets started in the open, or in open drawers.
         furthest = next((stage for stage in reversed(STAGES) if progress[stage]), None)
         unintended = [c for c in end.contacts if c["peak_n"] >= t["contact_n"]]
         left_open = {
@@ -175,12 +198,13 @@ class RetrieveTask:
             progress=progress,
             furthest=furthest,
             measured=dict(
+                held_object=held[0] if held else None,
                 target_height_m=round(float(target[2]), 3),
-                target_lift_m=round(float(target[2]) - start["target_z"], 3),
+                target_lift_m=round(float(target[2]) - start["target_z"][chosen], 3),
                 pinched=pinched,
                 distance_m=round(distance, 3),
                 path_length_m=round(self._path_m, 3),
-                hidden_in=start["hidden_in"],
+                hidden_in=start["hidden_in"][chosen],
                 stow_error_rad=round(truth.stow_error_rad(), 4),
                 base_up_cos=round(float(truth.base_pose()[2, 2]), 3),
                 ended_by=end.ended_by,
@@ -197,7 +221,7 @@ class RetrieveTask:
         )
 
     def _moved(self, truth: GroundTruth) -> dict[str, float]:
-        """Other bodies the run moved more than ``moved_m`` [m], drawers and the target left out.
+        """Other bodies the run moved more than ``moved_m`` [m], drawers and the targets left out.
         PhyGS gives each body's distance from where the episode placed it; the change since the reset
         is the run's. A body that started in a drawer is measured against that drawer's own travel, so
         one riding along in an opened drawer did not move."""
@@ -206,7 +230,7 @@ class RetrieveTask:
         moved = {}
         for name, (_, shift) in motion.items():
             was = before.get(name, (0.0, 0.0))[1]
-            if name == self.target or name in openings or shift - was <= limit:
+            if name in self.targets or name in openings or shift - was <= limit:
                 continue
             drawer = truth.started_inside(name)
             if drawer is not None and drawer in motion:

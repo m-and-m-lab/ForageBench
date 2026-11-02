@@ -18,6 +18,8 @@ import math
 import numpy as np
 
 SEARCH_PX = 5  # A pixel without depth takes the nearest valid one within this many pixels.
+# A top narrower than this share of the object's width across the view marks a round object (object_box).
+ROUND_TOP = 0.6
 
 
 class PointingError(ValueError):
@@ -149,14 +151,22 @@ def object_box(
     clearance_m: float = 0.01,
     min_size_m: float = 0.02,
     unknown_height_m: float = 0.05,
+    step_m: float = 0.02,
 ) -> tuple[np.ndarray, np.ndarray]:
     """A world-aligned box (centre, size) [m] for what the pixel shows standing on a surface: the
     surface is the highest dense level below the pixel's point within ``reach_m`` (horizontally) of
-    it (:func:`support_height`), the object the pixels connected to the pixel that stand more than
-    ``clearance_m`` above it and no higher than the pixel's point (2nd-98th percentile extent, so
-    stray points do not widen it). Its top is what the depth saw;
-    its bottom is the surface, or ``unknown_height_m`` below the top when no surface shows. An
-    estimate for grasping and for planning with the object in the hand, not a segmentation."""
+    it (:func:`support_height`), the object the pixels connected to the pixel (neighbours whose
+    points are within ``step_m``, so a surface behind it is not joined) that stand more than
+    ``clearance_m`` above the surface and at most ``reach_m`` above the pixel's point (2nd-98th
+    percentile extent, so stray points do not widen it). Its top is the highest the depth saw, so a
+    point on an object's side measures all of it; its bottom is the surface, or ``unknown_height_m``
+    below the top when no surface shows.
+
+    The camera never sees an object's far side. Under a top much narrower than the object (a bottle's
+    cap) the object is taken as round: its far half hides behind its near half, so its footprint is a
+    circle as wide as the object looks across the view, its near side where the depth saw it. A flat
+    top shows how deep the object is. An estimate for grasping and for planning with the object in
+    the hand, not a segmentation."""
     found = camera_of(packet, camera)
     col, row = valid_pixel(packet, camera, u, v)
     depth, valid = array(found.depth).astype(float), array(found.depth_valid).astype(bool)
@@ -179,15 +189,21 @@ def object_box(
     surface = support_height(z[near], top[2], clearance_m)
     if surface is None:
         surface = top[2] - unknown_height_m
-    above = near & (z > surface + clearance_m) & (z <= top[2] + clearance_m)
+    above = near & (z > surface + clearance_m) & (z <= top[2] + reach_m)
+    # Grow the object from the pixel through its 4-neighbours that stand above the surface and join it.
+    everything = (slice(None), slice(None))
+    shifts = []
+    for axis in (0, 1):
+        later, earlier = list(everything), list(everything)
+        later[axis], earlier[axis] = slice(1, None), slice(None, -1)
+        for dst, src in ((tuple(later), tuple(earlier)), (tuple(earlier), tuple(later))):
+            shifts.append((dst, src, np.linalg.norm(points[dst] - points[src], axis=-1) <= step_m))
     region = np.zeros_like(above)
     region[row - r0, col - c0] = True
-    while True:  # Grow the object from the pixel through its 4-neighbours that stand above the surface.
+    while True:
         grown = region.copy()
-        grown[1:] |= region[:-1]
-        grown[:-1] |= region[1:]
-        grown[:, 1:] |= region[:, :-1]
-        grown[:, :-1] |= region[:, 1:]
+        for dst, src, joined in shifts:
+            grown[dst] |= region[src] & joined
         grown &= above
         grown[row - r0, col - c0] = True
         if (grown == region).all():
@@ -195,7 +211,18 @@ def object_box(
         region = grown
     seen = points[region]
     low, high = np.percentile(seen, 2, axis=0), np.percentile(seen, 98, axis=0)
-    low[2], high[2] = surface, top[2]
+    low[2], high[2] = surface, max(float(high[2]), float(top[2]))
+    view = seen[:, :2].mean(axis=0) - pose[:2, 3]
+    if np.linalg.norm(view) > 1e-6:  # Seen from aside, not from straight above.
+        along = view / np.linalg.norm(view)
+        across = np.array([-along[1], along[0]])
+        sideways = np.percentile(seen[:, :2] @ across, [2, 98])
+        crown = seen[seen[:, 2] >= high[2] - clearance_m, :2] @ across
+        wide = sideways[1] - sideways[0]
+        if len(crown) >= 5 and np.ptp(crown) < ROUND_TOP * wide:
+            nearest = np.percentile(seen[:, :2] @ along, 2)
+            middle = (sideways[0] + sideways[1]) / 2 * across + (nearest + wide / 2) * along
+            low[:2], high[:2] = middle - wide / 2, middle + wide / 2
     size = np.maximum(high - low, min_size_m)
     centre = (low + high) / 2
     centre[2] = high[2] - size[2] / 2  # The top stays where the depth saw it.

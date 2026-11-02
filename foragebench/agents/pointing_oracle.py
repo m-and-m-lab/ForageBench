@@ -11,7 +11,8 @@ navigate_to the handle, open the drawer, navigate_to the target (on a table; in 
 where it opened it), look at it, pick it, stowing the arm before each walk as a model must. A point
 hidden behind something (the target in a drawer) is pointed at where it is hidden. While no
 camera's image holds a point yet it first walks to the composite skills' stance for it, where a
-model would explore until it sees it. It checks that the pointing skills work physically; it is the
+model would explore until it sees it. It points at the target's top, or at its middle when the top
+is seen edge-on (a box on a table at the cameras' height). It checks that the pointing skills work physically; it is the
 ceiling of the skills (and of the estimator), not of a method.
 
     ./isaaclab.sh -p -m foragebench run --episode dev/grid_drawer --track privileged \\
@@ -58,33 +59,40 @@ def pixel_of(session, point, cameras=CAMERAS, occluded: bool = False) -> dict | 
     return None
 
 
-def in_image(session, point) -> dict | None:
-    """The point's pixel: where a camera sees it, else where it is hidden in a camera's image."""
-    return pixel_of(session, point) or pixel_of(session, point, occluded=True)
+def in_image(session, points) -> dict | None:
+    """The pixel of the first of ``points`` a camera sees, else of the first hidden in a camera's image."""
+    for occluded in (False, True):
+        for point in points:
+            seen = pixel_of(session, point, occluded=occluded)
+            if seen is not None:
+                return seen
+    return None
 
 
-def in_view(session, point, what: str, stance) -> dict:
-    """The point's pixel; while no camera's image holds it, after walking to ``stance`` (a composite
-    skill's stance for it)."""
-    seen = in_image(session, point)
+def in_view(session, points, what: str, stance) -> dict:
+    """A pixel of ``points`` (:func:`in_image`); while no camera's image holds one, after walking to
+    ``stance`` (a composite skill's stance for them)."""
+    seen = in_image(session, points)
     if seen is None:
         print(f"pointing oracle: no camera sees the {what}; walking to its stance", flush=True)
         walked = session.wait(session.navigation.navigate_to(*stance))
         if walked.status != "succeeded":
             raise AgentFailed(f"navigate_to its stance: {walked.reason}")
-        seen = in_image(session, point)
+        seen = in_image(session, points)
     if seen is None:
         raise AgentFailed(f"no camera sees the {what}")
     return seen
 
 
-def point_at(session, point, what: str) -> dict:
-    """Aim the hand camera at a point (from wherever it is in an image), then its pixel in the hand camera."""
-    seen = in_image(session, point)
+def point_at(session, points, what: str) -> dict:
+    """Aim the hand camera at one of ``points`` (from wherever it is in an image), then the pixel of the
+    first the hand camera sees."""
+    seen = in_image(session, points)
     if seen is None:
         raise AgentFailed(f"no camera sees the {what}")
     call(session, "look_at", **seen)
-    return pixel_of(session, point, ("hand",)) or seen
+    hand = (pixel_of(session, point, ("hand",)) for point in points)
+    return next((pixel for pixel in hand if pixel is not None), seen)
 
 
 def run(session) -> None:
@@ -94,17 +102,18 @@ def run(session) -> None:
     if target.inside is not None:
         part = session.hints.part(target.inside)
         handle = np.asarray(part.handle_center, dtype=float)
-        call(session, "navigate_to", **in_view(session, handle, "drawer handle", skills.open_stance(part)))
-        call(session, "open_drawer", **point_at(session, handle, "drawer handle"))
+        call(session, "navigate_to", **in_view(session, (handle,), "drawer handle", skills.open_stance(part)))
+        call(session, "open_drawer", **point_at(session, (handle,), "drawer handle"))
         call(session, "stow")
         target = session.hints.target()  # The open drawer moved it.
-    top = np.asarray(target.center, dtype=float) + [0.0, 0.0, float(target.size[2]) / 2]
+    center = np.asarray(target.center, dtype=float)
+    spots = (center + [0.0, 0.0, float(target.size[2]) / 2], center)  # Its top, else its middle.
     if target.inside is None:
         stance = skills.reach_stances(target.center)[-1]
-        call(session, "navigate_to", **in_view(session, top, "target", stance))
+        call(session, "navigate_to", **in_view(session, spots, "target", stance))
     # In a drawer the robot stays where it pulled it open: the target is about as far ahead as the
     # handle was before the pull.
-    seen = point_at(session, top, "target")
+    seen = point_at(session, spots, "target")
     try:  # How well the pick's box from depth matches the target: a check of the skill, printed only.
         center, size = perception.object_box(session.observe(), **seen)
         print(

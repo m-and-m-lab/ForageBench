@@ -69,8 +69,8 @@ def test_nothing_hidden_reaches_the_agent(key):
     task = load_task(EpisodeSpec.from_dict(episode.spec, base=episode.path.parent).task)
     public = summary(task)
     assert set(public) == PUBLIC_TASK_KEYS and public == episode.public_task
-    target = episode.answer["target"]
-    assert all(target not in str(value) for value in public.values()), f"{key}: the public task names {target!r}"
+    for target in (episode.answer["target"], *episode.answer.get("matches", ())):
+        assert all(target not in str(value) for value in public.values()), f"{key}: the public task names {target!r}"
 
 
 def test_the_rules_pin_the_installed_phygs_version():

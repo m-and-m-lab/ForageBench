@@ -9,6 +9,6 @@ same on every track. Every use of a granted channel is audited and listed in the
 | `gt_localization` | navigation, manipulation, direct walking | the true pose only: the map comes from the cameras, the arm plans on depth, the agent finds the target | model agents, first track |
 | `onboard` (planned) | the same | nothing; localization is the agent's | full autonomy |
 
-`actions` is a PhyGS action set (`skills`, `motion`, `joints`) or a list; `grants` a subset of
+`actions` is a PhyGS action set (`skills`, `motion`) or a list; `grants` a subset of
 `gt_localization`, `known_map`, `object_targets`, `scene_hints`. A track file's hash is in every
 result (`provenance.track`).

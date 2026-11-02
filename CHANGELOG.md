@@ -4,6 +4,14 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Changed (2026-11-01, model runs and drawer openings)
+
+- The evaluator reports `progress.opened` as none when the target's drawer starts open (an episode's `parts`, PhyGS 0.11.0): there was nothing to open. No current episode starts with a drawer open, so no result changes.
+- The pointing oracle points at the target's middle when no camera sees its top (a box on a table seen edge-on from the stance): the grid_table failure "no camera sees the target".
+- **house_drawer told the agent "the small cardboard box", but its target (`kitchen_island_compartment_0_item_1`) is a sealed bottle**; the drawer's printed box is another object (`item_0`). The description is now "the dark bottle". An episode change: a benchmark version change; model results on house_drawer before this measured the wrong instruction.
+- **An episode's answer may list `matches`**: other objects the description fits as well; holding any of them counts (`RetrieveTask(..., matches=...)`), progress follows them all, and the result names the `held_object`. house_drawer lists the three other copies of its bottle (one in the drawer above; the same mesh and materials at 6.5 x 6.5 x 18 cm). The oracle still goes for `target`.
+- The model harness's box from depth (`perception.object_box`) joins only neighbouring pixels whose points are within 2 cm (a surface behind the object is not joined), takes the object's top as the highest point it sees (a point on an object's side used to cut the box at that height), and takes an object whose top is much narrower than it (a bottle) as round: as deep as it is wide, its near side where the depth saw it. The house bottle measured 4.4 x 3.2 cm of 5 x 5 cm before (its far half hidden), 4.6 x 4.6 cm now, centred within 1 mm; the pick's grasp went 2 cm too deep and the elbow hit the drawer above (pointing oracle, 3 of 4 failures on 2026-11-01).
+
 ### Changed (2026-11-01, composite skills)
 
 - Pinned PhyGS 0.10.0 (`phygs.composite`, one skill list, each skill's machinery under `phygs.skills.<name>.execution`). A benchmark version change.

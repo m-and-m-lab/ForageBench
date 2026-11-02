@@ -16,7 +16,8 @@ GOALS = ("retrieve", "none")
 
 
 def load_task(block: dict) -> Task:
-    """The task object for an episode's ``task`` block: ``{goal: retrieve, description, target}``."""
+    """The task object for an episode's ``task`` block: ``{goal: retrieve, description, target}`` and
+    optionally ``matches`` (other objects the description fits; holding one counts)."""
     if not isinstance(block, dict) or "goal" not in block:
         raise ValueError("The task block needs a goal.")
     goal = block["goal"]
@@ -26,6 +27,10 @@ def load_task(block: dict) -> Task:
         if set(block) != {"goal"}:
             raise ValueError("A goal of none has no other fields.")
         return NoTask()
-    if set(block) != {"goal", "description", "target"} or not (block["description"] and block["target"]):
-        raise ValueError("A retrieve task is {goal, description, target}, all given.")
-    return RetrieveTask(str(block["description"]), str(block["target"]))
+    keys = {"goal", "description", "target"}
+    if not keys <= set(block) <= keys | {"matches"} or not (block["description"] and block["target"]):
+        raise ValueError("A retrieve task is {goal, description, target}, all given, and optionally matches.")
+    matches = block.get("matches") or []
+    if not isinstance(matches, list):
+        raise ValueError("A retrieve task's matches are a list of scene names.")
+    return RetrieveTask(str(block["description"]), str(block["target"]), matches=tuple(map(str, matches)))

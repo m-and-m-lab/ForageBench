@@ -25,7 +25,7 @@ HERE = Path(__file__).resolve().parent
 TRACKS = HERE.parent / "tracks"
 TRACK_KEYS = {"actions", "grants"}
 PUBLIC_TASK_KEYS = {"goal", "description"}  # What the agent is told.
-ANSWER_KEYS = {"target"}  # Hidden from the agent.
+ANSWER_KEYS = {"target", "matches"}  # Hidden from the agent; matches (objects the description fits as well) optional.
 OPTIMAL_KEYS = {"path_length_m", "manipulations"}
 
 
@@ -97,8 +97,8 @@ def load_episode(reference: str, *, track: str, manifest: Path) -> Episode:
         raise ValueError(
             f"{path}: the task block is what the agent is told, {sorted(PUBLIC_TASK_KEYS)}; the target is in answer."
         )
-    if not isinstance(answer, dict) or set(answer) != ANSWER_KEYS or not answer["target"]:
-        raise ValueError(f"{path}: the answer block is {sorted(ANSWER_KEYS)}, given.")
+    if not isinstance(answer, dict) or not {"target"} <= set(answer) <= ANSWER_KEYS or not answer["target"]:
+        raise ValueError(f"{path}: the answer block is a target and optionally its matches, {sorted(ANSWER_KEYS)}.")
     if not isinstance(optimal, dict) or set(optimal) - OPTIMAL_KEYS:
         raise ValueError(f"{path}: the optimal block holds {sorted(OPTIMAL_KEYS)}.")
     track_name, track_data, track_sha = load_track(track)

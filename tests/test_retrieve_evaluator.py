@@ -153,6 +153,30 @@ def test_reached_is_read_at_the_end_and_from_the_samples():
 def test_a_target_in_the_open_has_nothing_to_open():
     result = run(FakeTruth(started_inside={}), GOOD)
     assert result["progress"]["opened"] is None and result["measured"]["hidden_in"] is None
+    in_an_open_drawer = run(FakeTruth(opening=0.3), HOLDING_IN_AN_OPEN_DRAWER[1:])  # The episode opened it.
+    assert in_an_open_drawer["progress"]["opened"] is None and in_an_open_drawer["measured"]["hidden_in"] == "top"
+
+
+def test_holding_an_object_the_description_fits_as_well_counts():
+    """The same bottle stands in another drawer: holding it is success, and progress follows it."""
+    truth = FakeTruth(started_inside={"box": "top", "twin": "side"})
+    poses = {"box": (1.2, 0.0, 0.30), "twin": (3.0, 0.0, 0.30)}
+    truth.object_pose = lambda name: np.block([[np.eye(3), np.array(poses[name])[:, None]], [np.zeros(3), 1.0]])
+    held = {"twin"}
+    truth.lifted_near_wrist = lambda name, **_: name in held
+    truth.pinched = lambda name, threshold_n: name in held
+    task = RetrieveTask("the dark bottle", "box", matches=("twin",))
+    task.reset(truth)
+    poses["twin"] = (2.6, 0.0, 0.50)  # Lifted out of its drawer and held near the base.
+    truth.set(base_xy=(2.2, 0.0), contacts=(("arm_link_fngr", "twin", 8.0),))
+    result = task.result(truth, EpisodeEnd("finish", 60.0, ()))
+    assert result["outcome"] == "success" and result["measured"]["held_object"] == "twin"
+    assert result["progress"] == dict(reached=True, opened=False, touched=True, lifted=True, held=True)
+    assert result["conduct"]["objects_moved"] == {}  # A target is not an object moved on the way.
+    held.clear()
+    assert task.result(truth, EpisodeEnd("finish", 60.0, ()))["outcome"] == "failure"
+    with pytest.raises(ValueError, match="matches"):
+        RetrieveTask("the dark bottle", "box", matches=("box",))
 
 
 def test_conduct_is_reported_beside_the_outcome_never_in_it():

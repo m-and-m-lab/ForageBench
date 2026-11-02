@@ -272,6 +272,74 @@ def test_the_surface_under_a_box_is_the_table_not_the_floor_seen_past_its_edge()
     assert perception.support_height(np.array([0.5] * 5), 0.6, 0.01) is None  # Too few points below.
 
 
+def side_view(shapes, width=400, height=300, focal=400.0, tilt_deg=30.0):
+    """A camera 0.6 m up at the origin looking along world +x, tilted down by ``tilt_deg``, over a
+    floor (z = 0); ``shapes`` are upright cylinders (x, y, radius, z low, z high) and boxes
+    ((x, y, z) low, (x, y, z) high). Depth by ray casting, so surfaces hide what is behind them."""
+    tilt = math.radians(tilt_deg)
+    s, c = math.sin(tilt), math.cos(tilt)
+    pose = np.array([[0, -s, c, 0], [-1, 0, 0, 0], [0, -c, -s, 0.6], [0, 0, 0, 1.0]])
+    cols, rows = np.meshgrid(np.arange(width), np.arange(height))
+    rays = np.stack([(cols - width / 2) / focal, (rows - height / 2) / focal, np.ones(cols.shape)], -1)
+    world = rays @ pose[:3, :3].T  # Per unit of optical depth.
+    eye = pose[:3, 3]
+    best = np.where(world[..., 2] < 0, -eye[2] / np.minimum(world[..., 2], -1e-9), 10.0)  # The floor.
+    for shape in shapes:
+        if len(shape) == 5:  # A cylinder: its side, then its top disc.
+            x, y, radius, low, high = shape
+            ox, oy = eye[0] - x, eye[1] - y
+            a = world[..., 0] ** 2 + world[..., 1] ** 2
+            b = 2 * (ox * world[..., 0] + oy * world[..., 1])
+            disc = b**2 - 4 * a * (ox**2 + oy**2 - radius**2)
+            t = (-b - np.sqrt(np.maximum(disc, 0))) / (2 * a)
+            z = eye[2] + t * world[..., 2]
+            side = (disc >= 0) & (t > 0) & (z >= low) & (z <= high)
+            best = np.where(side & (t < best), t, best)
+            t = (high - eye[2]) / np.minimum(world[..., 2], -1e-9)
+            hx, hy = eye[0] + t * world[..., 0] - x, eye[1] + t * world[..., 1] - y
+            cap = (t > 0) & (hx**2 + hy**2 <= radius**2)
+            best = np.where(cap & (t < best), t, best)
+        else:  # A box: the slab method.
+            low, high = (np.asarray(corner, dtype=float) for corner in shape)
+            with np.errstate(divide="ignore", invalid="ignore"):
+                t0, t1 = (low - eye) / world, (high - eye) / world
+            enter = np.nanmax(np.minimum(t0, t1), axis=-1)
+            leave = np.nanmin(np.maximum(t0, t1), axis=-1)
+            hit = (enter <= leave) & (enter > 0)
+            best = np.where(hit & (enter < best), enter, best)
+    camera = SimpleNamespace(
+        depth=best,
+        depth_valid=best < 10.0,
+        intrinsics=np.array([[focal, 0, width / 2], [0, focal, height / 2], [0, 0, 1.0]]),
+        frame="front",
+        stamp=STAMP,
+    )
+    packet = SimpleNamespace(cameras={"front": camera}, transform=lambda target, source, stamp: pose)
+    return packet, pose
+
+
+def pixel_of_point(packet, point):
+    return perception.project(packet, "front", point)
+
+
+def test_a_round_object_seen_from_aside_is_as_deep_as_it_is_wide_wherever_it_is_pointed_at():
+    """A bottle 1 m ahead (body 5 cm wide to 0.13 m, a 2 cm cap to 0.15 m): the camera sees its near
+    half only. The box is the bottle's, from its cap or from the middle of its body."""
+    packet, _ = side_view([(1.0, 0.0, 0.025, 0.0, 0.13), (1.0, 0.0, 0.01, 0.13, 0.15)])
+    for point in ((1.0, 0.0, 0.15), (0.975, 0.0, 0.07)):  # The cap's top; the body's near side.
+        center, size = perception.object_box(packet, "front", *pixel_of_point(packet, point))
+        assert center[:2] == pytest.approx([1.0, 0.0], abs=0.005), point
+        assert size[:2] == pytest.approx([0.05, 0.05], abs=0.006) and size[2] == pytest.approx(0.15, abs=0.005)
+
+
+def test_a_flat_topped_box_seen_from_aside_keeps_the_depth_its_top_shows():
+    """A box 10 cm deep (along the view) and 4 cm wide: its top shows its far edge, so it stays 10 cm deep."""
+    packet, _ = side_view([((0.95, -0.02, 0.0), (1.05, 0.02, 0.06))])
+    center, size = perception.object_box(packet, "front", *pixel_of_point(packet, (1.0, 0.0, 0.06)))
+    assert center[:2] == pytest.approx([1.0, 0.0], abs=0.006)
+    assert size == pytest.approx([0.1, 0.04, 0.06], abs=0.008)
+
+
 def test_pick_hands_the_box_it_measured_to_the_composite_pick(monkeypatch):
     """The box on the floor 1.4 m ahead (world x) and 0.1 m left: the composite pick gets the box the
     depth measured (it walks into reach and looks itself); the harness makes no call of its own."""
