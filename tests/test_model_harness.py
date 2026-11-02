@@ -345,8 +345,8 @@ def test_pick_hands_the_box_it_measured_to_the_composite_pick(monkeypatch):
     depth measured (it walks into reach and looks itself); the harness makes no call of its own."""
     picked = []
 
-    def pick(self, center, size):
-        picked.append(SimpleNamespace(center=tuple(center), size=tuple(size)))
+    def pick(self, center, size, part=None):
+        picked.append(SimpleNamespace(center=tuple(center), size=tuple(size), part=part))
         self.held = "held box"
 
     monkeypatch.setattr(CompositeSkills, "pick", pick)
@@ -360,6 +360,7 @@ def test_pick_hands_the_box_it_measured_to_the_composite_pick(monkeypatch):
     assert results[0].ok, results[0].reason
     (target,) = picked
     assert target.center == pytest.approx((1.4, 0.1, 0.05), abs=0.01) and session.calls == []
+    assert target.part is None  # No drawer opened.
     session.manipulation.holding = True  # A later stow carries the box the pick measured.
     run_loop(session, ScriptedOrchestrator([SkillCall("stow")]))
     assert session.calls[-1] == ("stow", "held box")
@@ -372,6 +373,30 @@ def test_a_pixel_without_depth_takes_the_nearest_surface_around_it_not_the_backg
     camera.depth_valid[38:43, 49:52] = False  # Its edge, around the pixel (50, 40), has no depth.
     assert perception.valid_pixel(packet, "front", 50, 40) == (48, 40)
     assert perception.valid_pixel(packet, "front", 30, 40) == (30, 40)  # A pixel with depth is itself.
+
+
+def test_a_pick_in_the_drawer_the_harness_opened_gets_that_drawer(monkeypatch):
+    """The drawer front at x 1.98 m faces -x; pulled 0.25 m, its handle ends at x 1.73 m. An object
+    0.35 m behind it gets the drawer (the composite pick stands square to it, clear of it first), and
+    so does one 0.5 m to the handle's side (the house's kitchen island drawer is 1.6 m wide); one on
+    the floor beside the robot does not; after a close, none does."""
+    monkeypatch.setattr(
+        CompositeSkills, "_stroke", lambda self, part, kind, length: (Motion("succeeded"), {}, dict(moved_m=length))
+    )
+    picked = []
+    monkeypatch.setattr(CompositeSkills, "pick", lambda self, center, size, part=None: picked.append(part))
+    boxes = iter([(2.08, 0.05, 0.75), (2.08, 0.5, 0.75), (0.5, 1.0, 0.05), (2.08, 0.05, 0.75)])
+    monkeypatch.setattr(perception, "object_box", lambda *a: (np.array(next(boxes)), np.array([0.05, 0.05, 0.15])))
+    pointed = {"camera": "front", "u": 50, "v": 50}
+    calls = [SkillCall("open_drawer", pointed), *[SkillCall("pick", pointed)] * 3]
+    session = FakeSession()
+    assert all(r.ok for r in run_loop(session, ScriptedOrchestrator(calls))[:-1])
+    inside, aside, beside = picked
+    assert inside.handle_center[0] == pytest.approx(1.98 - PULL_M) and inside.opening == pytest.approx(PULL_M)
+    assert inside.direction == pytest.approx((-1.0, 0.0, 0.0), abs=1e-6) and aside is inside and beside is None
+    calls = [SkillCall("close_drawer", pointed), SkillCall("pick", pointed)]
+    assert all(r.ok for r in run_loop(session, ScriptedOrchestrator(calls))[:-1])
+    assert picked[-1] is None
 
 
 def test_open_drawer_stands_a_tolerance_nearer_when_the_handle_was_out_of_reach(monkeypatch):

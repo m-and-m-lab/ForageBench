@@ -4,6 +4,10 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Changed (2026-11-02)
+
+- The model harness's `pick` hands the composite pick the drawer the harness last opened when the object lies in it (`skills.DRAWER_*`: at most 0.6 m behind its handle, 0.8 m to its side and 0.25 m from its height; the house's kitchen island drawer is 1.6 m wide), so it stands square to the drawer and first where the body is clear of it. Without it, every stance stood over the open drawer, which the cameras' costmap marks occupied (Qwen3.8, house_drawer, 2026-11-01). A close forgets the drawer.
+
 ### Changed (2026-11-01, model runs and drawer openings)
 
 - The evaluator reports `progress.opened` as none when the target's drawer starts open (an episode's `parts`, PhyGS 0.11.0): there was nothing to open. No current episode starts with a drawer open, so no result changes.
