@@ -9,11 +9,12 @@ a point.
 A model points: a skill that acts on something takes a camera and a pixel (``u`` column from the
 left, ``v`` row from the top) in the images it was just shown, and :mod:`.perception` (the
 estimator) turns the pixel into what the PhyGS skill takes: a world point, an object's box, a
-drawer's part. That conversion, handing a later stow or look the box the pick measured, and handing
-a pick the drawer the harness opened when the object lies in it, is all this module adds; the
-motions are PhyGS's (the session's ``navigate_to``, ``explore``, ``command_velocity``, ``look_at``
-and ``stow``; the composite ``pick``, ``open_drawer`` and ``close_drawer``), and ``done`` ends the
-episode. Nothing here is privileged: no object names, boxes or drawer parts.
+drawer's part. That conversion, handing a later stow or look the box the pick measured, handing a
+pick the drawer the harness opened when the object lies in it, and pushing that drawer back as far as
+it was pulled, is all this module adds; the motions are PhyGS's (the session's ``navigate_to``,
+``explore``, ``command_velocity``, ``look_at`` and ``stow``; the composite ``pick``, ``open_drawer``
+and ``close_drawer``), and ``done`` ends the episode. Nothing here is privileged: no object names,
+boxes or drawer parts.
 
 Each skill returns (status, reason): the session's own status, ``refused`` when the arguments could
 not be used (a pixel without depth, a skill the track does not allow), or ``done``.
@@ -36,13 +37,18 @@ from foragebench.agents.model.perception import PointingError
 # of its base; a pick then walks the last bit itself). Nearer, Nav2's fine approach took 25 moves
 # (70 s) to a stance 0.95 m from a box on a table's far side (2026-10-30).
 STANDOFF_M = 1.05
-PULL_M = 0.25  # open_drawer / close_drawer: stroke length [m], shortened to stay within reach.
+# close_drawer on a drawer the harness did not open: push length [m] (the depth shows no opening).
+# open_drawer pulls as far as the arm reaches from its stance: the depth shows no slide's travel.
+PUSH_M = 0.25
 HANDLE_RADIUS_M = 0.01  # A handle bar's radius [m]: the depth return is its front, the bar axis behind.
 UP = np.array([0.0, 0.0, 1.0])
 # An object lies in the drawer the harness opened when it is at most this far behind the handle, to its
 # side and from its height [m]: the house and grid drawers are 0.6 m deep, 0.5 to 1.6 m wide (the
 # kitchen island's), and 0.2 to 0.4 m high.
 DRAWER_DEPTH_M, DRAWER_HALF_WIDTH_M, DRAWER_HEIGHT_M = 0.6, 0.8, 0.25
+# A measured handle is the opened drawer's when it is within this [m] of it in depth and height (the
+# drawers above and below are 0.31 m or more away), anywhere along its width.
+SAME_HANDLE_M = 0.05
 
 
 @dataclass(frozen=True)
@@ -112,17 +118,22 @@ def _held(session):
 _OPENED: dict[int, ArticulatedPart] = {}
 
 
+def _from_handle(part: ArticulatedPart, point) -> tuple[float, float, float]:
+    """How far ``point`` [m] lies behind ``part``'s handle (into the drawer), to its side and above it."""
+    offset = np.asarray(point, dtype=float) - np.asarray(part.handle_center, dtype=float)
+    out = np.asarray(part.direction, dtype=float)[:2]
+    behind = -float(offset[:2] @ out)
+    return behind, float(np.linalg.norm(offset[:2] + behind * out)), float(offset[2])
+
+
 def _drawer_around(session, center) -> ArticulatedPart | None:
     """The drawer the harness opened, when ``center`` [m] lies in it (``DRAWER_*``): the composite pick
     then stands square to it, and first where the body is clear of it (a costmap marks it occupied)."""
     part = _OPENED.get(id(session))
     if part is None:
         return None
-    offset = np.asarray(center, dtype=float) - np.asarray(part.handle_center, dtype=float)
-    out = np.asarray(part.direction, dtype=float)[:2]
-    behind = -float(offset[:2] @ out)
-    side = float(np.linalg.norm(offset[:2] + behind * out))
-    inside = 0.0 <= behind <= DRAWER_DEPTH_M and side <= DRAWER_HALF_WIDTH_M and abs(offset[2]) <= DRAWER_HEIGHT_M
+    behind, side, up = _from_handle(part, center)
+    inside = 0.0 <= behind <= DRAWER_DEPTH_M and side <= DRAWER_HALF_WIDTH_M and abs(up) <= DRAWER_HEIGHT_M
     return part if inside else None
 
 
@@ -194,18 +205,27 @@ def _drawer_part(seen, camera: str, u: float, v: float) -> ArticulatedPart:
 
 
 def _stroke(session, part: ArticulatedPart, kind: str) -> tuple[str, str]:
-    """The composite drawer stroke on the measured drawer: it stands in front of it, then pulls it
-    (open) or pushes it (close) ``PULL_M``, keeping the handle within the grip range ahead of the base."""
+    """The composite drawer stroke on the measured drawer: it stands in front of it, then pulls it as
+    far as the arm reaches from there (open, as the oracle's), or pushes it (close) back as far as the
+    harness pulled it when it is the drawer the harness opened, else ``PUSH_M``."""
     if session.navigation is None:
         raise PointingError("this track has no navigation client to stand at the drawer")
-    skills = composite(session)
-    stroke = skills.open_drawer if kind == "open" else skills.close_drawer
-    _OPENED.pop(id(session), None)
-    moved = stroke(part, distance=PULL_M).measured["moved_m"]
+    skills, opened = composite(session), _OPENED.pop(id(session), None)
     if kind == "open":
+        moved = skills.open_drawer(part).measured["moved_m"]
         handle = np.asarray(part.handle_center) + np.asarray(part.direction) * moved
         _OPENED[id(session)] = replace(part, handle_center=tuple(map(float, handle)), opening=float(moved))
+    elif opened is not None and _same_handle(opened, part):
+        moved = skills.close_drawer(replace(part, opening=opened.opening)).measured["moved_m"]
+    else:
+        moved = skills.close_drawer(part, distance=PUSH_M).measured["moved_m"]
     return "succeeded", f"moved the drawer {moved:.2f} m"
+
+
+def _same_handle(opened: ArticulatedPart, part: ArticulatedPart) -> bool:
+    """Whether ``part``'s measured handle is the handle of the drawer the harness ``opened``."""
+    behind, side, up = _from_handle(opened, part.handle_center)
+    return abs(behind) <= SAME_HANDLE_M and side <= DRAWER_HALF_WIDTH_M and abs(up) <= SAME_HANDLE_M
 
 
 def open_drawer(session, seen, camera: str, u: float, v: float) -> tuple[str, str]:

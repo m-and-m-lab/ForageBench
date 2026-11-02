@@ -6,6 +6,7 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ### Changed (2026-11-02)
 
+- **The model harness's `open_drawer` pulls as far as the arm reaches from its stance (about 0.29 m), as the oracle's pull, instead of a fixed 0.25 m** (`PULL_M`, from before the composite skills, which limit the pull to the reach themselves); `close_drawer` pushes the drawer the harness opened back as far as it pulled it, else 0.25 m (`PUSH_M`). With the short pull the house drawer was open 0.23-0.24 m at the pick (the oracle's 0.25-0.30 m), and from the nearer stances Spot's forearm pressed on the drawer above in 3 of 12 pointing-oracle runs (the jaws stopped up to 12 mm off the bottle's middle; twice it rolled out on the lift). Pulling as far as the arm reaches: 0.24-0.26 m at the pick, house_drawer 4/4 with no forearm contact (from as near as 933 mm), grid_drawer 2/2 (2026-11-02). A benchmark version change (the model's menu).
 - The model harness's `pick` hands the composite pick the drawer the harness last opened when the object lies in it (`skills.DRAWER_*`: at most 0.6 m behind its handle, 0.8 m to its side and 0.25 m from its height; the house's kitchen island drawer is 1.6 m wide), so it stands square to the drawer and first where the body is clear of it. Without it, every stance stood over the open drawer, which the cameras' costmap marks occupied (Qwen3.8, house_drawer, 2026-11-01). A close forgets the drawer.
 
 ### Changed (2026-11-01, model runs and drawer openings)

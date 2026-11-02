@@ -42,7 +42,7 @@ all the harness adds.
 | `explore` | timeout | `navigation.explore` [s]. Refused with the arm out |
 | `command_velocity` | v_x, v_y, v_rot, duration | `locomotion.command_velocity` [m/s, m/s, rad/s, s]; all zeros stops |
 | `look_at` | camera, target | `manipulation.look_at` at the pixel's point, from look_at's own views |
-| `open_drawer`, `close_drawer` | camera, target | the composite drawer stroke on the drawer measured at the pixel from depth (the handle sticking out of the front, the front's outward direction): it stows, stands in front of it (again a walk tolerance nearer if the handle was out of reach) and pulls (pushes) it 0.25 m |
+| `open_drawer`, `close_drawer` | camera, target | the composite drawer stroke on the drawer measured at the pixel from depth (the handle sticking out of the front, the front's outward direction): it stows, stands in front of it (again a walk tolerance nearer if the handle was out of reach) and pulls it as far as the arm reaches from there (as the oracle's pull: the depth shows no travel), or pushes it back as far as the harness pulled it (0.25 m for a drawer it did not open) |
 | `pick` | camera, target | the composite pick on the object's box measured from depth: it stows, walks to where the arm reaches it, looks at it, then straight down first, then tilted, each grasp yaw in turn; later plans carry the box as the held object |
 | `stow` | — | `manipulation.stow` (also holding, with the held object's box) |
 | `done` | — | ends the episode; the evaluator decides the outcome |

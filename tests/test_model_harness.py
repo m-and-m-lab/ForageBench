@@ -23,7 +23,7 @@ from foragebench.agents.model.loop import LoopConfig, run_loop
 from foragebench.agents.model.orchestrator import SkillCall, build_system_prompt, parse_skill_call
 from foragebench.agents.model.perception import PointingError
 from foragebench.agents.model.scripted import ScriptedOrchestrator
-from foragebench.agents.model.skills import PULL_M, SKILLS, STANDOFF_M
+from foragebench.agents.model.skills import PUSH_M, SKILLS, STANDOFF_M
 
 WIDTH, HEIGHT, F = 100, 80, 100.0
 # The camera 1 m up at the origin, looking along world +x (optical z forward, x right = world -y, y down).
@@ -117,10 +117,11 @@ def test_system_prompt_lists_every_skill_explains_pointing_and_states_the_condit
 
 
 class FakeSession:
-    """A session whose clients succeed, with the grants of a track and the fake camera."""
+    """A session whose clients succeed, with the grants of a track and the fake camera. With ``walks``
+    the base stops at each navigate_to goal; else it stays at the origin."""
 
-    def __init__(self, grants=(), holding=False, pose=True, stowed=True):
-        self.grants, self.calls, self.finished = tuple(grants), [], None
+    def __init__(self, grants=(), holding=False, pose=True, stowed=True, walks=False):
+        self.grants, self.calls, self.finished, self.walks = tuple(grants), [], None, walks
         self.robot = load_robot("spot").info()
         self.task = SimpleNamespace(goal="retrieve", description="the box")
         self.packet = fake_packet(pose=pose)
@@ -141,6 +142,10 @@ class FakeSession:
 
     def wait(self, command):
         self.calls.append(command)
+        if self.walks and command[0] == "navigate_to" and len(command[1]) == 3:
+            x, y, heading = command[1]
+            c, s = math.cos(heading), math.sin(heading)
+            self.packet.localization.pose.matrix = np.array([[c, -s, 0, x], [s, c, 0, y], [0, 0, 1, 0], [0, 0, 0, 1.0]])
         return SimpleNamespace(status="succeeded", reason="ok")
 
     def sleep(self, seconds):
@@ -198,7 +203,8 @@ def test_the_loop_stops_on_repeats_and_on_the_budget():
 def test_open_drawer_stands_in_front_of_the_measured_drawer_then_pulls_it(monkeypatch):
     """The drawer as the depth shows it: the front faces the camera (outward -x), the handle sticks
     out 3 cm at x = 1.97 m. The robot first stands facing it with the handle at the far end of its
-    grip range, then pulls along the outward direction."""
+    grip range, then pulls along the outward direction as far as the arm reaches from there (the
+    handle to the near end of the grip range), as the oracle's pull: the depth shows no travel."""
     strokes = []
     monkeypatch.setattr(
         CompositeSkills,
@@ -206,7 +212,7 @@ def test_open_drawer_stands_in_front_of_the_measured_drawer_then_pulls_it(monkey
         lambda self, part, kind, length: strokes.append((part, kind, length))
         or (Motion("succeeded"), {}, dict(moved_m=length)),
     )
-    session = FakeSession(stowed=False)  # The arm is out (after a look_at): the composite skill stows to walk.
+    session = FakeSession(stowed=False, walks=True)  # The arm is out (after a look_at): the composite stows to walk.
     results = run_loop(session, ScriptedOrchestrator([SkillCall("open_drawer", {"camera": "front", "u": 50, "v": 50})]))
     assert results[0].ok, results[0].reason
     stow, walk = session.calls[:2]
@@ -218,7 +224,7 @@ def test_open_drawer_stands_in_front_of_the_measured_drawer_then_pulls_it(monkey
     assert heading == pytest.approx(0.0, abs=1e-6)
     ((part, how, length),) = strokes
     assert how == "open" and part.direction == pytest.approx((-1.0, 0.0, 0.0), abs=1e-6)
-    assert part.handle_center[0] == pytest.approx(1.98) and length == pytest.approx(PULL_M)
+    assert part.handle_center[0] == pytest.approx(1.98) and length == pytest.approx(far - tolerance - near)
 
 
 def test_navigate_to_a_world_position_is_phygs_own_and_adds_nothing():
@@ -376,10 +382,10 @@ def test_a_pixel_without_depth_takes_the_nearest_surface_around_it_not_the_backg
 
 
 def test_a_pick_in_the_drawer_the_harness_opened_gets_that_drawer(monkeypatch):
-    """The drawer front at x 1.98 m faces -x; pulled 0.25 m, its handle ends at x 1.73 m. An object
-    0.35 m behind it gets the drawer (the composite pick stands square to it, clear of it first), and
-    so does one 0.5 m to the handle's side (the house's kitchen island drawer is 1.6 m wide); one on
-    the floor beside the robot does not; after a close, none does."""
+    """The drawer front at x 1.98 m faces -x; pulled 0.29 m (as far as the arm reaches), its handle
+    ends at x 1.69 m. An object 0.39 m behind it gets the drawer (the composite pick stands square to
+    it, clear of it first), and so does one 0.5 m to the handle's side (the house's kitchen island
+    drawer is 1.6 m wide); one on the floor beside the robot does not; after a close, none does."""
     monkeypatch.setattr(
         CompositeSkills, "_stroke", lambda self, part, kind, length: (Motion("succeeded"), {}, dict(moved_m=length))
     )
@@ -389,18 +395,41 @@ def test_a_pick_in_the_drawer_the_harness_opened_gets_that_drawer(monkeypatch):
     monkeypatch.setattr(perception, "object_box", lambda *a: (np.array(next(boxes)), np.array([0.05, 0.05, 0.15])))
     pointed = {"camera": "front", "u": 50, "v": 50}
     calls = [SkillCall("open_drawer", pointed), *[SkillCall("pick", pointed)] * 3]
-    session = FakeSession()
+    session = FakeSession(walks=True)
     assert all(r.ok for r in run_loop(session, ScriptedOrchestrator(calls))[:-1])
     inside, aside, beside = picked
-    assert inside.handle_center[0] == pytest.approx(1.98 - PULL_M) and inside.opening == pytest.approx(PULL_M)
+    pulled = TUNING.grip_range_m[1] - TUNING.goal_tolerance[0] - TUNING.grip_range_m[0]
+    assert inside.handle_center[0] == pytest.approx(1.98 - pulled) and inside.opening == pytest.approx(pulled)
     assert inside.direction == pytest.approx((-1.0, 0.0, 0.0), abs=1e-6) and aside is inside and beside is None
     calls = [SkillCall("close_drawer", pointed), SkillCall("pick", pointed)]
     assert all(r.ok for r in run_loop(session, ScriptedOrchestrator(calls))[:-1])
     assert picked[-1] is None
 
 
+def test_a_close_pushes_the_drawer_the_harness_opened_back_as_far_as_it_pulled_it(monkeypatch):
+    """Measured again where the pull left it, the opened drawer's handle is the one the harness pulled:
+    the close pushes it back that far (less the slide's margin, as the oracle's close). The harness
+    then forgets it: a close of a drawer it did not open pushes ``PUSH_M``."""
+    strokes = []
+    monkeypatch.setattr(
+        CompositeSkills,
+        "_stroke",
+        lambda self, part, kind, length: strokes.append((kind, length))
+        or (Motion("succeeded"), {}, dict(moved_m=length)),
+    )
+    pointed = {"camera": "front", "u": 50, "v": 50}
+    session = FakeSession(walks=True)
+    assert run_loop(session, ScriptedOrchestrator([SkillCall("open_drawer", pointed)]))[0].ok
+    ((_, pulled),) = strokes
+    measure = perception.protruding_point
+    monkeypatch.setattr(perception, "protruding_point", lambda *a: measure(*a) - np.array([pulled, 0.0, 0.0]))
+    calls = [SkillCall("close_drawer", pointed), SkillCall("close_drawer", pointed)]
+    assert all(r.ok for r in run_loop(session, ScriptedOrchestrator(calls))[:-1])
+    assert strokes[1:] == [("close", pytest.approx(pulled - TUNING.limit_margin_m)), ("close", pytest.approx(PUSH_M))]
+
+
 def test_open_drawer_stands_a_tolerance_nearer_when_the_handle_was_out_of_reach(monkeypatch):
-    strokes = iter([None, (Motion("succeeded"), {}, dict(moved_m=PULL_M))])  # Every pitch refused, then pulled.
+    strokes = iter([None, (Motion("succeeded"), {}, dict(moved_m=0.25))])  # Every pitch refused, then pulled.
     monkeypatch.setattr(CompositeSkills, "_stroke", lambda self, part, kind, length: next(strokes))
     session = FakeSession()
     results = run_loop(session, ScriptedOrchestrator([SkillCall("open_drawer", {"camera": "front", "u": 50, "v": 50})]))
