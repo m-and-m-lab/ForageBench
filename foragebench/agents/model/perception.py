@@ -20,6 +20,10 @@ import numpy as np
 SEARCH_PX = 5  # A pixel without depth takes the nearest valid one within this many pixels.
 # A top narrower than this share of the object's width across the view marks a round object (object_box).
 ROUND_TOP = 0.6
+# facing_normal fits the plane most of the patch lies on, not all of it: from a body camera 0.4-0.6 m
+# away the patch is 7 cm wide, and a handle bar 5 cm out of the front, a quarter of the points, turned
+# a least-squares plane 48-62 deg (Qwen3.8, grid_drawer and house_drawer, 2026-11-02).
+PLANE_TRIES, PLANE_INLIER_M = 64, 0.005
 
 
 class PointingError(ValueError):
@@ -105,10 +109,28 @@ def patch_points(packet, camera: str, u: float, v: float, radius: int) -> np.nda
     return points @ pose[:3, :3].T + pose[:3, 3]
 
 
+def on_main_plane(points: np.ndarray) -> np.ndarray:
+    """The points within ``PLANE_INLIER_M`` of the plane most of them lie on, of ``PLANE_TRIES``
+    planes through three of them (a fixed seed: the same points give the same plane)."""
+    rng = np.random.default_rng(0)
+    best = None
+    for _ in range(PLANE_TRIES):
+        a, b, c = points[rng.choice(len(points), 3, replace=False)]
+        normal = np.cross(b - a, c - a)
+        length = np.linalg.norm(normal)
+        if length < 1e-12:
+            continue
+        near = np.abs((points - a) @ normal) <= PLANE_INLIER_M * length
+        if best is None or near.sum() > best.sum():
+            best = near
+    return points if best is None or best.sum() < 3 else points[best]
+
+
 def facing_normal(packet, camera: str, u: float, v: float, radius: int = 25) -> np.ndarray:
     """The level unit vector out of the vertical surface around the pixel, towards the camera
-    (a drawer front's outward direction) [world]. Fits a plane to the depth around the pixel."""
-    points = patch_points(packet, camera, u, v, radius)
+    (a drawer front's outward direction) [world]. Fits a plane to the depth around the pixel that
+    most of it lies on (:func:`on_main_plane`; a handle bar stands out of the front)."""
+    points = on_main_plane(patch_points(packet, camera, u, v, radius))
     centered = points - points.mean(axis=0)
     normal = np.linalg.svd(centered, full_matrices=False)[2][-1]
     level = np.array([normal[0], normal[1], 0.0])

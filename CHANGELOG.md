@@ -4,6 +4,10 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Fixed (2026-11-03)
+
+- **The model harness measures a drawer front's direction (`perception.facing_normal`) on the plane most of the depth patch lies on (`perception.on_main_plane`), not on a least-squares plane through all of it.** From a body camera 0.4-0.6 m away the patch is 7 cm wide, and the handle bar, 5 cm out of the front, is a quarter of its points: the fit turned 48-62 deg, so `open_drawer` stood at an angle and pulled along the wrong line, or its stance was an occupied Nav2 goal (Qwen3.8 on grid_drawer's target drawer and on the house island's top drawer, 2026-11-02). From the same poses it is now within 0.01 deg. `navigate_to` at a pixel uses the same direction. A benchmark version change (the harness's estimator).
+
 ### Changed (2026-11-02)
 
 - **The model harness's `open_drawer` pulls as far as the arm reaches from its stance (about 0.29 m), as the oracle's pull, instead of a fixed 0.25 m** (`PULL_M`, from before the composite skills, which limit the pull to the reach themselves); `close_drawer` pushes the drawer the harness opened back as far as it pulled it, else 0.25 m (`PUSH_M`). With the short pull the house drawer was open 0.23-0.24 m at the pick (the oracle's 0.25-0.30 m), and from the nearer stances Spot's forearm pressed on the drawer above in 3 of 12 pointing-oracle runs (the jaws stopped up to 12 mm off the bottle's middle; twice it rolled out on the lift). Pulling as far as the arm reaches: 0.24-0.26 m at the pick, house_drawer 4/4 with no forearm contact (from as near as 933 mm), grid_drawer 2/2 (2026-11-02). A benchmark version change (the model's menu).

@@ -73,6 +73,30 @@ def test_a_drawer_front_faces_the_camera_and_its_handle_is_the_point_sticking_ou
     assert abs(handle[1]) < 0.03  # Near the pointed column along the bar (u 40-60), not at an end.
 
 
+def test_a_drawer_front_seen_from_near_faces_out_of_the_front_not_out_of_its_handle():
+    """From a body camera 0.45 m away the patch is 7 cm wide and a bar 5 cm out of the front is a
+    quarter of it: a plane fitted to all of it turned 48-62 deg (Qwen3.8, 2026-11-02)."""
+    packet, focal = fake_packet(handle=False), 320.0
+    camera = packet.cameras["front"]
+    camera.intrinsics = np.array([[focal, 0, WIDTH / 2], [0, focal, HEIGHT / 2], [0, 0, 1.0]])
+    yaw = math.radians(15.0)  # The front turned this far from facing the camera.
+    outward = np.array([-math.cos(yaw), math.sin(yaw), 0.0])
+    centre, origin = np.array([0.45, 0.0, 1.0]), CAMERA_POSE[:3, 3]
+    cols, rows = np.meshgrid(np.arange(WIDTH), np.arange(HEIGHT))
+    pixels = np.stack([(cols - WIDTH / 2) / focal, (rows - HEIGHT / 2) / focal, np.ones(cols.shape)], -1)
+    rays = pixels @ CAMERA_POSE[:3, :3].T  # World direction per metre of depth.
+
+    def depth_to(offset):  # Where each pixel's ray meets the plane ``offset`` [m] out of the front.
+        return (offset - (origin - centre) @ outward) / (rays @ outward)
+
+    bar = depth_to(0.05)
+    camera.depth = np.where(np.abs(rays[..., 2] * bar) <= 0.008, bar, depth_to(0.0))  # 1.6 cm high, at z 1 m.
+    found = perception.facing_normal(packet, "front", 50, 40)
+    assert found == pytest.approx(outward, abs=1e-6)
+    handle = perception.protruding_point(packet, "front", 50, 40, found)
+    assert (handle - centre) @ outward == pytest.approx(0.05, abs=1e-3)
+
+
 def test_pointing_errors_name_the_problem():
     packet = fake_packet()
     with pytest.raises(PointingError, match="outside"):
