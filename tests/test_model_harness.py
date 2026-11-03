@@ -15,7 +15,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 from phygs.composite import TUNING, CompositeSkills
-from phygs.composite.skills import Motion
+from phygs.composite.skills import _Refused
 from phygs.robots.description import load_robot
 
 from foragebench.agents.model import perception
@@ -233,8 +233,7 @@ def test_open_drawer_stands_in_front_of_the_measured_drawer_then_pulls_it(monkey
     monkeypatch.setattr(
         CompositeSkills,
         "_stroke",
-        lambda self, part, kind, length: strokes.append((part, kind, length))
-        or (Motion("succeeded"), {}, dict(moved_m=length)),
+        lambda self, part, kind, length: strokes.append((part, kind, length)) or ({}, dict(moved_m=length)),
     )
     session = FakeSession(stowed=False, walks=True)  # The arm is out (after a look_at): the composite stows to walk.
     results = run_loop(session, ScriptedOrchestrator([SkillCall("open_drawer", {"camera": "front", "u": 50, "v": 50})]))
@@ -410,9 +409,7 @@ def test_a_pick_in_the_drawer_the_harness_opened_gets_that_drawer(monkeypatch):
     ends at x 1.69 m. An object 0.39 m behind it gets the drawer (the composite pick stands square to
     it, clear of it first), and so does one 0.5 m to the handle's side (the house's kitchen island
     drawer is 1.6 m wide); one on the floor beside the robot does not; after a close, none does."""
-    monkeypatch.setattr(
-        CompositeSkills, "_stroke", lambda self, part, kind, length: (Motion("succeeded"), {}, dict(moved_m=length))
-    )
+    monkeypatch.setattr(CompositeSkills, "_stroke", lambda self, part, kind, length: ({}, dict(moved_m=length)))
     picked = []
     monkeypatch.setattr(CompositeSkills, "pick", lambda self, center, size, part=None: picked.append(part))
     boxes = iter([(2.08, 0.05, 0.75), (2.08, 0.5, 0.75), (0.5, 1.0, 0.05), (2.08, 0.05, 0.75)])
@@ -438,8 +435,7 @@ def test_a_close_pushes_the_drawer_the_harness_opened_back_as_far_as_it_pulled_i
     monkeypatch.setattr(
         CompositeSkills,
         "_stroke",
-        lambda self, part, kind, length: strokes.append((kind, length))
-        or (Motion("succeeded"), {}, dict(moved_m=length)),
+        lambda self, part, kind, length: strokes.append((kind, length)) or ({}, dict(moved_m=length)),
     )
     pointed = {"camera": "front", "u": 50, "v": 50}
     session = FakeSession(walks=True)
@@ -453,8 +449,15 @@ def test_a_close_pushes_the_drawer_the_harness_opened_back_as_far_as_it_pulled_i
 
 
 def test_open_drawer_stands_a_tolerance_nearer_when_the_handle_was_out_of_reach(monkeypatch):
-    strokes = iter([None, (Motion("succeeded"), {}, dict(moved_m=0.25))])  # Every pitch refused, then pulled.
-    monkeypatch.setattr(CompositeSkills, "_stroke", lambda self, part, kind, length: next(strokes))
+    strokes = iter([_Refused("open_drawer: the pull was refused"), ({}, dict(moved_m=0.25))])  # Then pulled.
+
+    def stroke(self, part, kind, length):
+        result = next(strokes)
+        if isinstance(result, Exception):
+            raise result
+        return result
+
+    monkeypatch.setattr(CompositeSkills, "_stroke", stroke)
     session = FakeSession()
     results = run_loop(session, ScriptedOrchestrator([SkillCall("open_drawer", {"camera": "front", "u": 50, "v": 50})]))
     assert results[0].ok, results[0].reason
