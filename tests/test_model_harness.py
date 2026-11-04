@@ -23,7 +23,7 @@ from foragebench.agents.model.loop import LoopConfig, run_loop
 from foragebench.agents.model.orchestrator import SkillCall, build_system_prompt, parse_skill_call
 from foragebench.agents.model.perception import PointingError
 from foragebench.agents.model.scripted import ScriptedOrchestrator
-from foragebench.agents.model.skills import PUSH_M, SKILLS, STANDOFF_M
+from foragebench.agents.model.skills import PUSH_M, SKILLS, STANDOFF_M, with_views
 
 WIDTH, HEIGHT, F = 100, 80, 100.0
 # The camera 1 m up at the origin, looking along world +x (optical z forward, x right = world -y, y down).
@@ -149,13 +149,19 @@ class FakeSession:
         self.robot = load_robot("spot").info()
         self.task = SimpleNamespace(goal="retrieve", description="the box")
         self.packet = fake_packet(pose=pose)
+        self.packet.cameras["hand"] = self.packet.cameras["front"]  # The look camera (Spot's), seeing the same.
         arm = np.array(self.robot.stow) + (0.0 if stowed else 0.5)
         self.packet.joints = SimpleNamespace(names=self.robot.arm_joints, positions=arm)
         self.navigation = SimpleNamespace(
             navigate_to=lambda *a, **k: ("navigate_to", a), explore=lambda **k: ("explore",)
         )
         self.locomotion = SimpleNamespace(command_velocity=lambda *a, **k: ("velocity", a))
-        self.manipulation = SimpleNamespace(look_at=lambda t, **k: ("look_at", t, k), stow=self._stow, holding=holding)
+        self.manipulation = SimpleNamespace(
+            look_at=lambda t, **k: ("look_at", t, k),
+            open_gripper=lambda: ("open_gripper",),
+            stow=self._stow,
+            holding=holding,
+        )
         self.hints = SimpleNamespace(target=lambda: SimpleNamespace(center=(1.0, 2.0, 0.5)))
 
     def _stow(self, held=None):
@@ -193,10 +199,39 @@ def test_the_loop_walks_to_a_pointed_spot_aims_the_hand_camera_and_stops_on_done
     assert [r.call.name for r in results] == ["navigate_to", "look_at", "stow", "done"] and all(r.ok for r in results)
     kind, (x, y, heading) = session.calls[0]
     assert kind == "navigate_to" and (x, y) == pytest.approx((2.0 - STANDOFF_M, 0.0)) and heading == pytest.approx(0.0)
-    _, target, views = session.calls[1]  # The world point the pixel shows in the capture the model was shown,
-    assert target.position == pytest.approx((2.0, 0.0, 1.0)) and target.frame == "world"
-    assert views == {"held": None}  # from look_at's own views.
+    # The look: the gripper opens, one look per sweep view at the world point the pixel shows in the
+    # capture the model was shown, then the arm folds.
+    looks = session.calls[2 : 2 + len(TUNING.look_sweep)]
+    assert session.calls[1] == ("open_gripper",) and session.calls[2 + len(TUNING.look_sweep)] == ("stow", None)
+    assert [args for _, _, args in looks] == [{"views": list(side), "held": None} for side in TUNING.look_sweep]
+    assert all(t.position == pytest.approx((2.0, 0.0, 1.0)) and t.frame == "world" for _, t, _ in looks)
+    assert results[1].reason.startswith("looked at it from 5 sides: view1, view2, view3, view4, view5")
     assert session.finished.startswith("model agent")
+
+
+def test_look_at_keeps_each_sweep_view_as_a_camera_measured_in_its_own_capture():
+    """The views come next as cameras of their own, measured in the capture at each view: the wall
+    stood 2 m ahead then, 3 m ahead in the later capture. A refused call and stow keep them; a call
+    that moves the robot forgets them."""
+    session = FakeSession()
+    status, reason = SKILLS["look_at"].run(session, session.observe(), camera="front", u=50, v=40)
+    assert status == "succeeded" and "5 sides" in reason
+    later = fake_packet(wall_x=3.0)
+    later.cameras["hand"], later.joints = later.cameras["front"], session.packet.joints
+    session.packet = later
+    seen = with_views(session, session.observe())
+    assert sorted(seen.cameras) == ["front", "hand", *(f"view{k}" for k in range(1, 6))]
+    assert perception.world_point(seen, "view2", 50, 40) == pytest.approx([2.0, 0.0, 1.0])  # Its own capture.
+    assert perception.world_point(seen, "front", 50, 40) == pytest.approx([3.0, 0.0, 1.0])  # The current one.
+    assert SKILLS["pick"].run(session, seen, camera="view1", u=999, v=1)[0] == "refused"
+    assert SKILLS["stow"].run(session, seen)[0] == "succeeded"
+    assert "view1" in with_views(session, session.observe()).cameras  # Nothing moved.
+    turn = dict(v_x=0.0, v_y=0.0, v_rot=0.4, duration=1.0)
+    assert SKILLS["command_velocity"].run(session, seen, **turn)[0] == "succeeded"
+    assert with_views(session, session.observe()).cameras.keys() == {"front", "hand"}
+    shown = ScriptedOrchestrator([SkillCall("look_at", {"camera": "front", "u": 50, "v": 40})])
+    run_loop(FakeSession(), shown)
+    assert "view1" not in shown.seen[0].images and "view5" in shown.seen[1].images  # The model sees them next.
 
 
 def test_a_pixel_the_robot_cannot_use_is_refused_with_the_reason():
@@ -494,7 +529,8 @@ def test_the_loop_finds_a_named_target_in_the_camera_image_the_model_named():
         ]
     )
     results = run_loop(session, orchestrator)
-    assert results[0].ok and session.calls[0][1].position == pytest.approx((2.0, 0.0, 1.0))
+    first_look = next(call for call in session.calls if call[0] == "look_at")
+    assert results[0].ok and first_look[1].position == pytest.approx((2.0, 0.0, 1.0))
     assert results[1].status == "refused" and "could not find 'a unicorn' in any camera" in results[1].reason
     assert results[2].status == "refused" and "no camera 'rear'" in results[2].reason
     assert results[0].call.args == {"camera": "front", "target": "the box"}  # The model's own words in its history.

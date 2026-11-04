@@ -8,12 +8,13 @@
 On the privileged track it reads where the target and the drawer handle are, projects them into the
 camera images, and calls the skills a model calls (``model/skills.py``) with those pixels:
 navigate_to the handle, open the drawer, navigate_to the target (on a table; in a drawer it stays
-where it opened it), look at it, pick it, stowing the arm before each walk as a model must. A point
-hidden behind something (the target in a drawer) is pointed at where it is hidden. While no
-camera's image holds a point yet it first walks to the composite skills' stance for it, where a
-model would explore until it sees it. It points at the target's top, or at its middle when the top
-is seen edge-on (a box on a table at the cameras' height). It checks that the pointing skills work physically; it is the
-ceiling of the skills (and of the estimator), not of a method.
+where it opened it), look at it (the sweep: it points in the first view that sees it), pick it,
+stowing the arm before each walk as a model must. A point hidden behind something (the target in a
+drawer) is pointed at where it is hidden. While no camera's image holds a point yet it first walks to
+the composite skills' stance for it, where a model would explore until it sees it. It points at the
+target's top, or at its middle when the top is seen edge-on (a box on a table at the cameras'
+height). It checks that the pointing skills work physically; it is the ceiling of the skills (and of
+the estimator), not of a method.
 
     ./isaaclab.sh -p -m foragebench run --episode dev/grid_drawer --track privileged \\
         --agent pointing_oracle --output ...
@@ -25,14 +26,14 @@ import numpy as np
 from phygs.session import AgentFailed
 
 from foragebench.agents.model import perception
-from foragebench.agents.model.skills import SKILLS, composite
+from foragebench.agents.model.skills import SKILLS, composite, with_views
 
 CAMERAS = ("hand", "frontleft", "frontright")
 VISIBLE_M = 0.05  # A point counts as seen when the depth there is within this of its distance [m].
 
 
 def call(session, name: str, **args) -> None:
-    status, reason = SKILLS[name].run(session, session.observe(), **args)
+    status, reason = SKILLS[name].run(session, with_views(session, session.observe()), **args)
     print(f"pointing oracle: {name}{args} -> {status} {reason}", flush=True)
     if status not in ("succeeded", "done"):
         raise AgentFailed(f"{name}: {reason}")
@@ -41,7 +42,7 @@ def call(session, name: str, **args) -> None:
 def pixel_of(session, point, cameras=CAMERAS, occluded: bool = False) -> dict | None:
     """Where a world point is seen: {camera, u, v} in the first camera that sees it unoccluded, or
     with ``occluded`` where it would be behind what hides it (a model points there too)."""
-    packet = session.observe()
+    packet = with_views(session, session.observe())
     for camera in cameras:
         if camera not in packet.cameras or packet.cameras[camera].depth is None:
             continue
@@ -85,14 +86,15 @@ def in_view(session, points, what: str, stance) -> dict:
 
 
 def point_at(session, points, what: str) -> dict:
-    """Aim the hand camera at one of ``points`` (from wherever it is in an image), then the pixel of the
-    first the hand camera sees."""
+    """look_at one of ``points`` (from wherever it is in an image), then the pixel of the first of them
+    that a view of the sweep sees, in the first view that sees it."""
     seen = in_image(session, points)
     if seen is None:
         raise AgentFailed(f"no camera sees the {what}")
     call(session, "look_at", **seen)
-    hand = (pixel_of(session, point, ("hand",)) for point in points)
-    return next((pixel for pixel in hand if pixel is not None), seen)
+    views = tuple(name for name in with_views(session, session.observe()).cameras if name.startswith("view"))
+    found = (pixel_of(session, point, views) for point in points)
+    return next((pixel for pixel in found if pixel is not None), seen)
 
 
 def run(session) -> None:
@@ -115,7 +117,7 @@ def run(session) -> None:
     # handle was before the pull.
     seen = point_at(session, spots, "target")
     try:  # How well the pick's box from depth matches the target: a check of the skill, printed only.
-        center, size = perception.object_box(session.observe(), **seen)
+        center, size = perception.object_box(with_views(session, session.observe()), **seen)
         print(
             f"pointing oracle: box from depth {np.round(center, 3).tolist()} size {np.round(size, 3).tolist()};"
             f" target {np.round(target.center, 3).tolist()} size {np.round(target.size, 3).tolist()}",

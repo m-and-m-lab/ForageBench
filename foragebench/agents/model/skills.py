@@ -10,11 +10,17 @@ A model points: a skill that acts on something takes a camera and a pixel (``u``
 left, ``v`` row from the top) in the images it was just shown, and :mod:`.perception` (the
 estimator) turns the pixel into what the PhyGS skill takes: a world point, an object's box, a
 drawer's part. That conversion, handing a later stow or look the box the pick measured, handing a
-pick the drawer the harness opened when the object lies in it, and pushing that drawer back as far as
-it was pulled, is all this module adds; the motions are PhyGS's (the session's ``navigate_to``,
-``explore``, ``command_velocity``, ``look_at`` and ``stow``; the composite ``pick``, ``open_drawer``
-and ``close_drawer``), and ``done`` ends the episode. Nothing here is privileged: no object names,
-boxes or drawer parts.
+pick the drawer the harness opened when the object lies in it, pushing that drawer back as far as
+it was pulled, and keeping the hand images of the last look_at for the model to point in, is all
+this module adds; the motions are PhyGS's (the session's ``navigate_to``, ``explore``,
+``command_velocity`` and ``stow``; the composite ``look_at``, ``pick``, ``open_drawer`` and
+``close_drawer``), and ``done`` ends the episode. Nothing here is privileged: no object names, boxes
+or drawer parts.
+
+look_at keeps the look camera's image at each view of its sweep as a camera of its own, ``view1``,
+``view2``, ...: :func:`with_views` adds them to what the model is shown, and a pixel in one is
+measured in that view's capture. They are kept until a call moves the robot or the scene (any skill
+but look_at, which replaces them, and stow).
 
 Each skill returns (status, reason): the session's own status, ``refused`` when the arguments could
 not be used (a pixel without depth, a skill the track does not allow), or ``done``.
@@ -28,7 +34,7 @@ from typing import Any
 
 import numpy as np
 from phygs.composite import CompositeSkills
-from phygs.session import AgentFailed, ArticulatedPart, PointTarget
+from phygs.session import AgentFailed, ArticulatedPart
 
 from foragebench.agents.model import perception
 from foragebench.agents.model.perception import PointingError
@@ -70,16 +76,20 @@ class Skill:
     or_args: tuple[str, ...] = ()  # The arguments the skill takes instead, if any (navigate_to: x, y).
 
 
-def guarded(skill: Callable[..., tuple[str, str]]) -> Callable[..., tuple[str, str]]:
-    """A pixel that cannot be used is ``refused``; a composite skill that gives up is ``failed``."""
+def guarded(skill: Callable[..., tuple[str, str]], keeps_views: bool = False) -> Callable[..., tuple[str, str]]:
+    """A pixel that cannot be used is ``refused``; a composite skill that gives up is ``failed``. A
+    call that is not refused forgets the kept views unless the skill ``keeps_views``."""
 
     def run(session, seen, **args) -> tuple[str, str]:
         try:
-            return skill(session, seen, **args)
+            status, reason = skill(session, seen, **args)
         except PointingError as error:
             return "refused", str(error)
         except AgentFailed as error:
-            return "failed", str(error)
+            status, reason = "failed", str(error)
+        if status != "refused" and not keeps_views:
+            _VIEWS.pop(id(session), None)
+        return status, reason
 
     return run
 
@@ -116,6 +126,34 @@ def _held(session):
 
 # The drawer each session's last open_drawer pulled, its handle where the pull left it; a close forgets it.
 _OPENED: dict[int, ArticulatedPart] = {}
+
+# Each session's kept views: name ("view1", ...) -> the observation at that view of the last look_at.
+_VIEWS: dict[int, dict[str, Any]] = {}
+
+
+class _WithViews:
+    """An observation with the kept views as cameras of their own; a view's camera pose is the one
+    at its capture, from that view's observation. Everything else is the observation's."""
+
+    def __init__(self, packet, views: dict[str, Any], camera: str) -> None:
+        self._packet, self._views = packet, views
+        self.cameras = {**packet.cameras, **{name: seen.cameras[camera] for name, seen in views.items()}}
+
+    def __getattr__(self, name: str):
+        return getattr(self._packet, name)
+
+    def transform(self, target: str, source: str, stamp):
+        for name, seen in self._views.items():
+            camera = self.cameras[name]
+            if camera.frame == source and camera.stamp == stamp:
+                return seen.transform(target, source, stamp)
+        return self._packet.transform(target, source, stamp)
+
+
+def with_views(session, packet):
+    """``packet`` (an observation) with the session's kept views as the cameras ``view1``, ``view2``, ..."""
+    views = _VIEWS.get(id(session))
+    return _WithViews(packet, views, session.robot.look_camera) if views else packet
 
 
 def _from_handle(part: ArticulatedPart, point) -> tuple[float, float, float]:
@@ -171,9 +209,19 @@ def command_velocity(session, seen, v_x: float, v_y: float, v_rot: float, durati
 
 
 def look_at(session, seen, camera: str, u: float, v: float) -> tuple[str, str]:
-    """``look_at`` the pixel's world point, from look_at's own views."""
-    point = PointTarget(tuple(map(float, perception.world_point(seen, camera, u, v))))
-    return _wait(session, session.manipulation.look_at(point, held=_held(session)))
+    """The composite ``look_at`` sweep at the pixel's world point; the look camera's image at each view
+    it reached is kept as ``view1``, ``view2``, ... (also the views reached before a move that failed)."""
+    point = perception.world_point(seen, camera, u, v)
+    skills = composite(session)
+    try:
+        looked = skills.look_at(point)
+    finally:
+        _VIEWS[id(session)] = {f"view{k}": look.observation for k, look in enumerate(skills.looks, 1)}
+    names = ", ".join(_VIEWS[id(session)])
+    missed = len(looked.measured["out_of_reach"])
+    return "succeeded", f"looked at it from {len(skills.looks)} sides: {names}" + (
+        f" ({missed} out of reach); the arm is folded" if missed else "; the arm is folded"
+    )
 
 
 def pick(session, seen, camera: str, u: float, v: float) -> tuple[str, str]:
@@ -267,7 +315,12 @@ SKILLS: dict[str, Skill] = {
         "walk at a body velocity [m/s, m/s, rad/s] for duration [s] (0, 0, v_rot turns in place; all 0 stops)",
         guarded(command_velocity),
     ),
-    "look_at": Skill(PIXEL, "point the hand camera at what the pixel shows", guarded(look_at)),
+    "look_at": Skill(
+        PIXEL,
+        "look at what the pixel shows with the hand camera from up to five sides, then fold the arm; the"
+        " images come next as view1, view2, ...",
+        guarded(look_at, keeps_views=True),
+    ),
     "open_drawer": Skill(
         PIXEL,
         "step in front of the drawer whose handle is at the pixel, take the handle, pull it open, fold the arm",
@@ -279,6 +332,6 @@ SKILLS: dict[str, Skill] = {
         guarded(close_drawer),
     ),
     "pick": Skill(PIXEL, "walk to within reach of the object at the pixel, grasp it and lift it", guarded(pick)),
-    "stow": Skill((), "fold the arm (also while holding something)", guarded(stow)),
+    "stow": Skill((), "fold the arm (also while holding something)", guarded(stow, keeps_views=True)),
     "done": Skill((), "end the episode: the target is in the hand and the arm is stowed", done),
 }

@@ -20,7 +20,7 @@ import numpy as np
 from foragebench.agents.model import perception
 from foragebench.agents.model.orchestrator import Observation, Orchestrator, SkillCall
 from foragebench.agents.model.perception import PointingError
-from foragebench.agents.model.skills import SKILLS, SkillResult
+from foragebench.agents.model.skills import SKILLS, SkillResult, with_views
 
 
 @dataclass
@@ -30,9 +30,10 @@ class LoopConfig:
 
 
 def observe(session) -> tuple[Observation, object, dict[str, tuple[int, tuple[int, ...]]]]:
-    """What the model is shown, the packet it came from (the skills read the pixels' depth in it),
-    and per camera the quarter turns that stood its image up with the image's own shape."""
-    packet = session.observe()
+    """What the model is shown, the packet it came from (the skills read the pixels' depth in it; with
+    the views the last look_at kept), and per camera the quarter turns that stood its image up with the
+    image's own shape."""
+    packet = with_views(session, session.observe())
     images, turned = {}, {}
     for name, camera in packet.cameras.items():
         rgb = getattr(camera, "rgb", None)

@@ -4,6 +4,10 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Changed (2026-11-04)
+
+- **The model's `look_at` is PhyGS's composite sweep (`CompositeSkills.look_at`), not one view.** It opens the empty gripper, looks at the pixel's point from five sides (-45 to 45 deg around it, 0.6 m out, 45 deg up, higher where that is out of reach), then folds the arm. The hand image at each view reached comes back as a camera of its own, `view1` to `view5` (`skills.with_views`): the model points in them and a pixel there is measured in that view's own capture. The views stay through a refused call and `stow`, and go after any call that moves the robot or the scene. In the Qwen3.8 house run, 10 of 10 "no depth near pixel" refusals were the model pointing at the gripper's black jaws in the hand image; with the gripper open, the share of the hand image without depth or nearer than 0.25 m fell from 26-32% to 1-6% (2026-11-04). The pointing oracle points in the first view that sees its point. The prompt (`prompts/system.md`) says what the views are. A benchmark version change (the model's menu and prompt).
+
 ### Fixed (2026-11-03)
 
 - **The model harness measures a drawer front's direction (`perception.facing_normal`) on the plane most of the depth patch lies on (`perception.on_main_plane`), not on a least-squares plane through all of it.** From a body camera 0.4-0.6 m away the patch is 7 cm wide, and the handle bar, 5 cm out of the front, is a quarter of its points: the fit turned 48-62 deg, so `open_drawer` stood at an angle and pulled along the wrong line, or its stance was an occupied Nav2 goal (Qwen3.8 on grid_drawer's target drawer and on the house island's top drawer, 2026-11-02). From the same poses it is now within 0.01 deg. `navigate_to` at a pixel uses the same direction. A benchmark version change (the harness's estimator).
