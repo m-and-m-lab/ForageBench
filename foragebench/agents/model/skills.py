@@ -270,11 +270,13 @@ SKILLS: dict[str, Skill] = {
     "look_at": Skill(PIXEL, "point the hand camera at what the pixel shows", guarded(look_at)),
     "open_drawer": Skill(
         PIXEL,
-        "step in front of the drawer whose handle is at the pixel, take the handle, pull it open",
+        "step in front of the drawer whose handle is at the pixel, take the handle, pull it open, fold the arm",
         guarded(open_drawer),
     ),
     "close_drawer": Skill(
-        PIXEL, "step in front of the drawer whose handle is at the pixel and push it shut", guarded(close_drawer)
+        PIXEL,
+        "step in front of the drawer whose handle is at the pixel, push it shut, fold the arm",
+        guarded(close_drawer),
     ),
     "pick": Skill(PIXEL, "walk to within reach of the object at the pixel, grasp it and lift it", guarded(pick)),
     "stow": Skill((), "fold the arm (also while holding something)", guarded(stow)),
