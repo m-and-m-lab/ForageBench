@@ -129,10 +129,10 @@ def test_parse_skill_call_strips_fences_and_checks_arguments():
 
 
 def test_system_prompt_lists_every_skill_explains_pointing_and_states_the_condition():
-    unknown = build_system_prompt("a ceramic mug", None, affordance_prior=False)
-    known = build_system_prompt("a ceramic mug", (1.0, 2.0, 0.5), affordance_prior=True)
+    unknown = build_system_prompt("a ceramic mug", None)
+    known = build_system_prompt("a ceramic mug", (1.0, 2.0, 0.5))
     assert "location is unknown" in unknown and "[1.0, 2.0, 0.5]" in known
-    assert all(f"- {name}(" in unknown for name in SKILLS) and "kitchen drawers" in known
+    assert all(f"- {name}(" in unknown for name in SKILLS)
     assert '"target", what it is' in unknown and "- navigate_to(camera, target) or navigate_to(x, y)" in unknown
     assert set(SKILLS) - {"done"} <= {"navigate_to", "explore", "command_velocity", "look_at", "stow", "pick"} | {
         "open_drawer",

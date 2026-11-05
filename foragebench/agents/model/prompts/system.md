@@ -16,8 +16,6 @@ $skills
 
 The base walks only with the arm folded: stow it before navigate_to or explore.
 
-$affordance_prior
-
 You also get the results of your previous skill calls, with the reason for any failure. The episode
 is scored only on the final state: the target must be in the gripper with the arm stowed when you
 call done. Reply with exactly one JSON object naming the next skill:
