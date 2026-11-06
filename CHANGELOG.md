@@ -4,6 +4,10 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Removed (2026-11-05)
+
+- `PLANS.md`. Plans, known gaps and decisions are kept in the maintainers' project tracker, outside the repository; the README and `docs/README.md` no longer link it. Not a benchmark version change.
+
 ### Changed (2026-11-04)
 
 - **The model's `look_at` is PhyGS's composite sweep (`CompositeSkills.look_at`), not one view.** It opens the empty gripper, looks at the pixel's point from five sides (-45 to 45 deg around it, 0.6 m out, 45 deg up, higher where that is out of reach), then folds the arm. The hand image at each view reached comes back as a camera of its own, `view1` to `view5` (`skills.with_views`): the model points in them and a pixel there is measured in that view's own capture. The views stay through a refused call and `stow`, and go after any call that moves the robot or the scene. In the Qwen3.8 house run, 10 of 10 "no depth near pixel" refusals were the model pointing at the gripper's black jaws in the hand image; with the gripper open, the share of the hand image without depth or nearer than 0.25 m fell from 26-32% to 1-6% (2026-11-04). The pointing oracle points in the first view that sees its point. The prompt (`prompts/system.md`) says what the views are. A benchmark version change (the model's menu and prompt).

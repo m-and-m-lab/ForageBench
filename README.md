@@ -120,7 +120,7 @@ Send the suite's `summary.json` and the per-run `result.json` files, from clean 
 
 ## 📚 Documentation
 
-[docs/README.md](docs/README.md): the [task card](docs/task_card.md), [installation](docs/install.md). Changes: [CHANGELOG.md](CHANGELOG.md). Status and plans: [PLANS.md](PLANS.md). Rules for contributors and coding agents, including the submodule rules: [AGENTS.md](AGENTS.md).
+[docs/README.md](docs/README.md): the [task card](docs/task_card.md), [installation](docs/install.md). Changes: [CHANGELOG.md](CHANGELOG.md). Rules for contributors and coding agents, including the submodule rules: [AGENTS.md](AGENTS.md).
 
 ## 📝 Citation
 
