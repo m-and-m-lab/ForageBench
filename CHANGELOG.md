@@ -6,6 +6,7 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ### Changed (2026-11-07)
 
+- **Pinned PhyGS 0.11.0** (was 0.10.0): Isaac Lab main (Isaac Sim 6.2.0), one stowed limit (`Truth.stowed`), the composite look_at sweep, drawer strokes that end stowed, the shoulder-line handle grasp, one cuRobo planner for every gripper angle. A benchmark version change.
 - **Runs on Isaac Lab main (Isaac Sim 6.2.0, Python 3.12), with PhyGS 0.11.0.** Commands are `isaaclab -p ...` (was `./isaaclab.sh -p ...`); `requires-python` is `>=3.12`. `foragebench suite` no longer passes `--headless` to its runs (Isaac Lab main has no such option and is headless by default; every suite run stopped on it) and forwards `--kit_args` to each run (GPU choice). Not a benchmark version change by itself; the PhyGS pin bump that goes with it is one.
 
 ### Changed (2026-11-06)
