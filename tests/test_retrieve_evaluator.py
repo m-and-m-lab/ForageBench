@@ -73,6 +73,9 @@ class FakeTruth:
     def stow_error_rad(self):
         return self.state["stow_error"]
 
+    def stowed(self):
+        return self.state["stow_error"] <= 0.18  # Spot's arm.stow_tolerance.
+
     def part_openings(self):
         return {"top": self.state["opening"], "side": 0.0}
 

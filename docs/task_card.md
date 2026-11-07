@@ -4,7 +4,7 @@
 
 **Task.** Retrieve: find the object described in words and bring it into the hand with the arm stowed, within a simulated-time budget, in a photorealistic, physically simulated house or test scene, with a Boston Dynamics Spot with Arm (simulated).
 
-**Success.** All four, read from ground truth after the robot has stopped and settled: the target is held (at least 5 cm off where it started, its centre within 0.35 m of the wrist, and every jaw pressing on it), the arm is within 0.05 rad of its stow posture, the base's up axis is within 15° of vertical, and the episode ended by the agent's `finish` or return before the budget. A fall or an emergency stop ends the episode as a failure.
+**Success.** All four, read from ground truth after the robot has stopped and settled: the target is held (at least 5 cm off where it started, its centre within 0.35 m of the wrist, and every jaw pressing on it), the arm is stowed (every arm joint within the robot's own stowed limit of its stow posture, the limit its stow skill and navigation use: 0.18 rad on Spot), the base's up axis is within 15° of vertical, and the episode ended by the agent's `finish` or return before the budget. A fall or an emergency stop ends the episode as a failure.
 
 **Also reported.** Reached (the base ends within 1.5 m of the target, or holds it); progress from samples during the run (reached, opened the drawer the target started in, touched, lifted, held), which says where a failed run stopped; SPL and SPL-M (Batra et al. 2020; SPL-M charges each manipulation 1 m of path on both the optimal and the actual side) for episodes with a stated optimal path; skill execution success; path length; simulated time. No difficulty tiers yet.
 

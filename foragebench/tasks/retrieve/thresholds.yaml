@@ -1,11 +1,13 @@
 # Retrieve evaluator thresholds (foragebench/tasks/retrieve/evaluator.py). Hashed into each report's
 # provenance and named by version in each result, so a result says which rules scored it. Change a
 # number: raise the version (results refuses to pool runs scored under different versions).
-version: 2
+version: 3
 held_lift_m: 0.05        # Held: the target is at least this far [m] above where it started ...
 held_reach_m: 0.35       # ... its centre within this distance [m] of the wrist link ...
 jaw_contact_n: 0.5       # ... and every jaw presses on it with at least this force [N].
-stow_tolerance_rad: 0.05 # Stowed: every arm joint within this [rad] of the stow posture.
+# Stowed is not set here: it is the robot's own limit (PhyGS robot.yaml arm.stow_tolerance, Spot
+# 0.18 rad), the one its stow skill and navigation use. Version 2 had 0.05 rad, inside the sag of a
+# held object's stow (0.040-0.051 rad, 2026-11-05).
 upright_min_cos: 0.966   # Upright: the base's up axis within 15 degrees of vertical (cos 15°).
 # Reached: the base's centre within this planar distance [m] of the target. Measured from the oracle's
 # stances in the dev episodes (2026-10-29): Spot picks from 0.88 m (table) and 1.22-1.23 m (drawers).

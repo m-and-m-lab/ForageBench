@@ -4,6 +4,10 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Changed (2026-11-06)
+
+- **Stowed is the robot's own limit.** The retrieve evaluator's `stowed` check is PhyGS's `Truth.stowed()`: every arm joint within the robot's `arm.stow_tolerance` (robot.yaml; Spot 0.18 rad) of its stow, the limit its stow skill, the composite skills and navigation use. `thresholds.yaml` drops `stow_tolerance_rad` (was 0.05 rad) and goes to version 3. A held object sags Spot's stowed wrist 0.040-0.051 rad, so 0.05 scored a stow the stow skill reported as done 'not stowed' (pointing oracle, grid_table, 2026-11-05). Needs PhyGS 0.11.0 (`Truth.stowed`). A benchmark version change.
+
 ### Removed (2026-11-05)
 
 - `PLANS.md`. Plans, known gaps and decisions are kept in the maintainers' project tracker, outside the repository; the README and `docs/README.md` no longer link it. Not a benchmark version change.

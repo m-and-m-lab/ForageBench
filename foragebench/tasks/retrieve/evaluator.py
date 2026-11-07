@@ -17,7 +17,8 @@ well (identical bottles in one house), so holding any of them is retrieving what
 for. The result has parts that are never merged:
 
 - **outcome**: the target is held (lifted, at the wrist, every jaw pressing on it), the arm is
-  stowed, the robot is upright and the episode ended within its budget.
+  stowed (by the robot's own limit, PhyGS's ``arm.stow_tolerance``: the one its stow skill and
+  navigation use), the robot is upright and the episode ended within its budget.
 - **reached**: the base ended near the target, or holds it.
 - **progress**: how far the run got, from the samples: reached, opened (the drawer the target started
   in; none when it started open), touched, lifted, held. It says where an agent failed.
@@ -40,7 +41,6 @@ REQUIRED = (
     "held_lift_m",
     "held_reach_m",
     "jaw_contact_n",
-    "stow_tolerance_rad",
     "upright_min_cos",
     "near_target_m",
     "opened_m",
@@ -63,6 +63,7 @@ class GroundTruth(Protocol):
     def started_inside(self, name: str) -> str | None: ...
     def body_motion(self) -> dict[str, tuple[float, float]]: ...
     def stow_error_rad(self) -> float: ...
+    def stowed(self) -> bool: ...
     def base_pose(self) -> np.ndarray: ...
     def part(self, name: str): ...  # An articulated part now; its ``opening`` [m].
     def part_openings(self) -> dict[str, float]: ...
@@ -169,7 +170,7 @@ class RetrieveTask:
         pinched = truth.pinched(chosen, t["jaw_contact_n"])
         checks = dict(
             held=bool(held),
-            stowed=truth.stow_error_rad() <= t["stow_tolerance_rad"],
+            stowed=truth.stowed(),
             upright=float(truth.base_pose()[2, 2]) >= t["upright_min_cos"],
             in_time=end.ended_by in ENDED_IN_TIME,
         )
