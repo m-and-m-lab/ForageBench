@@ -35,7 +35,6 @@ class SkillCall:
 @dataclass
 class OrchestratorConfig:
     model: str | None = None
-    affordance_prior: bool = True  # Add the prior on where household objects are kept to the prompt.
     max_new_tokens: int = 4096  # A thinking model's reasoning counts too.
     history: int = 8  # How many past results the model sees.
     pointer: str = "qwen"  # The grounding query the model is trained on (:data:`POINTERS`).
@@ -62,7 +61,7 @@ class Orchestrator(ABC):
     def reset(self, brief: str, target_position: tuple[float, float, float] | None = None) -> None:
         """Start an episode: ``brief`` is the task's public description; ``target_position`` is
         given only on a track that grants the target's position."""
-        self.system_prompt = build_system_prompt(brief, target_position, self.config.affordance_prior)
+        self.system_prompt = build_system_prompt(brief, target_position)
 
     @abstractmethod
     def act(self, observation: Observation) -> SkillCall:
@@ -129,18 +128,16 @@ def parse_point(text: str, pointer: str, shape: tuple[int, ...]) -> tuple[float,
     return min(max(x / 1000 * width, 0.0), width - 1.0), min(max(y / 1000 * height, 0.0), height - 1.0)
 
 
-def build_system_prompt(brief: str, target_position: tuple[float, float, float] | None, affordance_prior: bool) -> str:
+def build_system_prompt(brief: str, target_position: tuple[float, float, float] | None) -> str:
     location = (
         "The target's location is unknown."
         if target_position is None
         else f"The target is at world coordinates {[round(v, 3) for v in target_position]}."
     )
-    prior = (PROMPTS / "affordance_prior.md").read_text() if affordance_prior else ""
     return Template((PROMPTS / "system.md").read_text()).substitute(
         goal=brief,
         skills=skill_list(),
         target_location=location,
-        affordance_prior=prior,
     )
 
 

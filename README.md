@@ -112,7 +112,7 @@ Start from `template.py`, read `oracle.py` for a complete retrieve, run yours wi
 | oracle | privileged | 15 (3 episodes × 5 seeds) | 15/15 (Wilson 95%: 0.80–1.00) | 15/15 | 5/15 | 0.90 | 2.9 | 103 | The noise floor of the skills; every progress stage in every run, every jaw on the target at the end. `grid_table` is clean every time; the drawer episodes succeed every time but leave the drawer open (0.22–0.29 m) and touch the unit (peak 3–77 N), because the plan does not close it. No other object moved. |
 | null | gt_localization | 1 (house) | 0/1 | 0/1 | — | — | 0 | 1 | The floor: no progress stage reached. |
 
-Per episode (oracle): `grid_table` 5/5 in 61–79 s; `grid_drawer` 5/5 in 109–134 s; `house_drawer` 5/5 in 112–127 s. SPL is not reported for the dev episodes: no optimal path lengths until episodes state them. The model baselines (`vlm` with Qwen3-VL and Gemini Robotics-ER on `gt_localization`) are next ([PLANS.md](PLANS.md)).
+Per episode (oracle): `grid_table` 5/5 in 61–79 s; `grid_drawer` 5/5 in 109–134 s; `house_drawer` 5/5 in 112–127 s. SPL is not reported for the dev episodes: no optimal path lengths until episodes state them. The model baselines (`vlm` with Qwen3-VL and Gemini Robotics-ER on `gt_localization`) are next.
 
 ## 📤 Submitting results
 

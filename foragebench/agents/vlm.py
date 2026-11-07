@@ -78,7 +78,6 @@ def settings(chosen, loop: LoopConfig) -> dict:
         thinking=config.thinking,
         max_new_tokens=config.max_new_tokens,
         history=config.history,
-        affordance_prior=config.affordance_prior,
         max_calls=loop.max_calls,
         repeat_limit=loop.repeat_limit,
     )

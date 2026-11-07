@@ -10,6 +10,7 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ### Removed (2026-11-05)
 
+- **The affordance prior in the model's prompt** (`prompts/affordance_prior.md`, `OrchestratorConfig.affordance_prior`, on by default). It told the model where household objects are usually kept and the skill order for a drawer (navigate_to the handle, open_drawer, look_at, pick, stow): the search and the plan the benchmark measures. The run settings no longer record it. A benchmark version change (the model's prompt).
 - `PLANS.md`. Plans, known gaps and decisions are kept in the maintainers' project tracker, outside the repository; the README and `docs/README.md` no longer link it. Not a benchmark version change.
 
 ### Changed (2026-11-04)

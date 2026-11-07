@@ -18,7 +18,7 @@ Run yours with `--agent path/to/agent.py:run`.
 
 | Module | Role |
 | --- | --- |
-| `orchestrator.py` | The prompt (`prompts/system.md`, the optional affordance prior), `parse_skill_call` (one JSON object, arguments checked), the `Orchestrator` base class |
+| `orchestrator.py` | The prompt (`prompts/system.md`), `parse_skill_call` (one JSON object, arguments checked), the `Orchestrator` base class |
 | `skills.py` | The skills a model may name: each estimates the affordance (`perception.py`) and calls a PhyGS composite skill (`phygs.composite`) or a session client, returning a status and reason |
 | `perception.py` | The estimator: a pixel the model points at to a world point with the robot's depth (a pixel without depth takes the nearest surface around it); a drawer front's outward direction; the handle near a pixel; an object's box from its top down to the surface it stands on. Nothing privileged. It stays in ForageBench: perception is the agent's side |
 | `loop.py` | Observe, ask, run, repeat; stops on `done`, the call budget, or the same call three times in a row |
