@@ -12,7 +12,7 @@
     foragebench scenes list | fetch                  # The scene releases the episodes need.
     foragebench version                              # ForageBench, and PhyGS pinned and installed.
 
-Run it with Isaac Lab's Python: ``./isaaclab.sh -p -m foragebench <command>``. Each subcommand runs its
+Run it with Isaac Lab's Python: ``isaaclab -p -m foragebench <command>``. Each subcommand runs its
 module with the remaining arguments, so ``foragebench run --help`` is the run's own help.
 """
 

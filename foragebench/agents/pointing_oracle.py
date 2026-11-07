@@ -16,7 +16,7 @@ target's top, or at its middle when the top is seen edge-on (a box on a table at
 height). It checks that the pointing skills work physically; it is the ceiling of the skills (and of
 the estimator), not of a method.
 
-    ./isaaclab.sh -p -m foragebench run --episode dev/grid_drawer --track privileged \\
+    isaaclab -p -m foragebench run --episode dev/grid_drawer --track privileged \\
         --agent pointing_oracle --output ...
 """
 

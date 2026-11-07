@@ -48,44 +48,44 @@ Each folder has its own README; start there.
 
 ## 🛠️ Installation
 
-1. Build and enter PhyGS's container, Isaac Lab's base image with ROS 2 Jazzy, Nav2, explore_lite, MoveIt and cuRobo V2: [PhyGS docker/README.md](https://github.com/m-and-m-lab/PhyGS/blob/develop/docker/README.md). Nothing is repeated here.
+1. Build and enter PhyGS's container, Isaac Lab main's base image (Isaac Sim 6.2.0, Python 3.12) with ROS 2 Jazzy, Nav2, explore_lite, MoveIt and cuRobo V2: [PhyGS docker/README.md](https://github.com/m-and-m-lab/PhyGS/blob/develop/docker/README.md). Nothing is repeated here.
 2. Clone ForageBench with its submodules into the Isaac Lab `scripts` folder and install both packages:
 
 ```bash
 cd /workspace/isaaclab/scripts
 git clone --recursive -b develop https://github.com/m-and-m-lab/ForageBench.git   # --recursive: PhyGS and its Spot meshes
 cd ForageBench
-../../isaaclab.sh -p -m pip install -e third_party/phygs --no-deps   # PhyGS at the pinned release
-../../isaaclab.sh -p -m pip install -e . --no-deps                   # foragebench and the foragebench command
-../../isaaclab.sh -p -m pytest tests -q                              # unit tests, no simulator
+isaaclab -p -m pip install -e third_party/phygs --no-deps   # PhyGS at the pinned release
+isaaclab -p -m pip install -e . --no-deps                   # foragebench and the foragebench command
+isaaclab -p -m pytest tests -q                              # unit tests, no simulator
 ```
 
 3. In every shell: `source /opt/explore_ws/install/setup.bash`, `export ROS_DOMAIN_ID=48`, `export FORAGEBENCH=scripts/ForageBench` (relative to the Isaac Lab root, where every command below runs).
-4. Scenes: `./isaaclab.sh -p -m foragebench scenes list` says which releases the episodes need; `fetch` gets the missing ones (the dataset is private for now; `hf auth login` first). The grid episodes need no download. Details: [docs/install.md](docs/install.md).
+4. Scenes: `isaaclab -p -m foragebench scenes list` says which releases the episodes need; `fetch` gets the missing ones (the dataset is private for now; `hf auth login` first). The grid episodes need no download. Details: [docs/install.md](docs/install.md).
 
 ## 🚀 Quick start
 
-Every command is `foragebench <command>`, run with Isaac Lab's Python (`./isaaclab.sh -p -m foragebench --help`):
+Every command is `foragebench <command>`, run with Isaac Lab's Python (`isaaclab -p -m foragebench --help`):
 
 ```bash
 cd /workspace/isaaclab
 # What a run would do, without the simulator: rules, PhyGS pin, scene, track, agent. Exit 1 if it would be refused.
-./isaaclab.sh -p -m foragebench describe --episode dev/grid_table --track privileged --agent oracle
+isaaclab -p -m foragebench describe --episode dev/grid_table --track privileged --agent oracle
 
 # The floor: the null agent observes once and finishes. Prints the scored result; ~1 minute.
-./isaaclab.sh -p -m foragebench run --episode dev/grid_table --track privileged --agent null \
+isaaclab -p -m foragebench run --episode dev/grid_table --track privileged --agent null \
   --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_grid_table_null
 
 # The ceiling: the oracle retrieves the box (success, clean; ~65 simulated seconds).
-./isaaclab.sh -p -m foragebench run --episode dev/grid_table --track privileged --agent oracle \
+isaaclab -p -m foragebench run --episode dev/grid_table --track privileged --agent oracle \
   --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_grid_table_oracle
 
 # The dev set, five repeats each, one simulator process per episode (--fresh: one per run); prints the summary.
-./isaaclab.sh -p -m foragebench suite --set dev --track privileged --agent oracle --repeats 5 \
+isaaclab -p -m foragebench suite --set dev --track privileged --agent oracle --repeats 5 \
   --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_dev_oracle
 
 # The table again, for any folder of runs.
-./isaaclab.sh -p -m foragebench results $FORAGEBENCH/output_check/<folder>
+isaaclab -p -m foragebench results $FORAGEBENCH/output_check/<folder>
 ```
 
 ## ✍️ Writing an agent

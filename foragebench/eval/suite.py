@@ -5,7 +5,7 @@
 
 """Run a set of episodes, each in its own simulator process, and summarize the results.
 
-    ./isaaclab.sh -p -m foragebench suite --set dev --track privileged --agent oracle \\
+    isaaclab -p -m foragebench suite --set dev --track privileged --agent oracle \\
         --repeats 3 --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_dev_oracle
 
 Each episode is one ``foragebench run`` process with its repeats (``--repeats``; PhyGS resets the
@@ -42,7 +42,9 @@ def main() -> int:
     parser.add_argument("--benchmark", type=Path, default=ROOT / "configs" / "benchmark_v1.yaml")
     parser.add_argument("--output", type=Path, required=True, help="A fresh folder for the suite")
     parser.add_argument("--record", action="store_true")
-    parser.add_argument("--headless", action="store_true", default=True)
+    parser.add_argument(
+        "--kit_args", default="", help='Passed to every run, e.g. "--/renderer/activeGpu=1 --/physics/cudaDevice=1"'
+    )
     args = parser.parse_args()
     rules = yaml.safe_load(args.benchmark.read_text())
     entries = manifest_entries(ROOT / rules["manifest"])
@@ -80,7 +82,7 @@ def main() -> int:
             "--output",
             str(folder),
             *(["--record"] if args.record else []),
-            *(["--headless"] if args.headless else []),
+            *([f"--kit_args={args.kit_args}"] if args.kit_args else []),
         ]
         print(f"== {label}", flush=True)
         with (args.output / f"{label}.log").open("w") as log:

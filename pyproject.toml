@@ -7,7 +7,7 @@ name = "foragebench"
 version = "1.0.0.dev0"
 description = "ForageBench: a photorealistic, physically grounded benchmark for interactive object search, on the PhyGS simulation framework."
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 authors = [{ name = "Mapping and Motion Lab, University of Michigan" }]
 # PhyGS is the git submodule at third_party/phygs, installed with `pip install -e third_party/phygs`; it is the pin.
 # Isaac Sim, Isaac Lab, torch, numpy and yaml come from the Isaac Lab container.

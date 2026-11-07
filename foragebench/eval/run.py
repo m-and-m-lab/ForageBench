@@ -5,7 +5,7 @@
 
 """Run one ForageBench episode: an episode file, a track, an agent; write ``result.json``.
 
-    ./isaaclab.sh -p -m foragebench run --episode dev/grid_table --track privileged \\
+    isaaclab -p -m foragebench run --episode dev/grid_table --track privileged \\
         --agent null --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_grid_table_null
 
 ``--episode`` is an id of the manifest's sets (``dev/grid_table``) or the path of an episode file;

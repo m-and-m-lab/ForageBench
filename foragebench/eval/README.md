@@ -9,7 +9,7 @@ Run episodes and summarize results.
 | `foragebench suite --set dev --track privileged --agent oracle --repeats 5 --output DIR` | `suite.py` | Every episode of a set, `repeats` seeds each, one process per episode (`--fresh`: one per run); `DIR/summary.json` and a table. |
 | `foragebench results DIR` | `results.py` | The numbers below from the `result.json` files under a folder; writes `DIR/summary.json`. |
 
-All run from the Isaac Lab root with `./isaaclab.sh -p -m foragebench <command>`.
+All run from the Isaac Lab root with `isaaclab -p -m foragebench <command>`.
 
 ## result.json
 

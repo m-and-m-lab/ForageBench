@@ -7,8 +7,8 @@
 fetching the missing ones through PhyGS (``phygs.scene.fetch``). PhyGS owns the registry and the
 dataset; this module only asks for what the episodes name.
 
-    ./isaaclab.sh -p -m foragebench scenes list
-    ./isaaclab.sh -p -m foragebench scenes fetch
+    isaaclab -p -m foragebench scenes list
+    isaaclab -p -m foragebench scenes fetch
 """
 
 from __future__ import annotations

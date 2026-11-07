@@ -10,9 +10,9 @@ dataset on Hugging Face is `mandmlabresearch/ForageBench` (private for now).
 | `bear_loop_house` | 1.1.0 (the storage revision; archive SHA-256 `06b18741…`) | `dev/house_drawer` | `foragebench scenes fetch` |
 
 ```bash
-./isaaclab.sh -p -m huggingface_hub.cli.hf auth login     # once
-./isaaclab.sh -p -m foragebench scenes list               # the scenes the manifest needs, and whether each is present
-./isaaclab.sh -p -m foragebench scenes fetch              # fetch the missing releases through PhyGS
+isaaclab -p -m huggingface_hub.cli.hf auth login     # once
+isaaclab -p -m foragebench scenes list               # the scenes the manifest needs, and whether each is present
+isaaclab -p -m foragebench scenes fetch              # fetch the missing releases through PhyGS
 ```
 
 Releases install under `~/.cache/phygs/scenes` (`$PHYGS_SCENES` to move them). A release is

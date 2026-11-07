@@ -4,6 +4,10 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Changed (2026-11-07)
+
+- **Runs on Isaac Lab main (Isaac Sim 6.2.0, Python 3.12), with PhyGS 0.11.0.** Commands are `isaaclab -p ...` (was `./isaaclab.sh -p ...`); `requires-python` is `>=3.12`. `foragebench suite` no longer passes `--headless` to its runs (Isaac Lab main has no such option and is headless by default; every suite run stopped on it) and forwards `--kit_args` to each run (GPU choice). Not a benchmark version change by itself; the PhyGS pin bump that goes with it is one.
+
 ### Changed (2026-11-06)
 
 - **Stowed is the robot's own limit.** The retrieve evaluator's `stowed` check is PhyGS's `Truth.stowed()`: every arm joint within the robot's `arm.stow_tolerance` (robot.yaml; Spot 0.18 rad) of its stow, the limit its stow skill, the composite skills and navigation use. `thresholds.yaml` drops `stow_tolerance_rad` (was 0.05 rad) and goes to version 3. A held object sags Spot's stowed wrist 0.040-0.051 rad, so 0.05 scored a stow the stow skill reported as done 'not stowed' (pointing oracle, grid_table, 2026-11-05). Needs PhyGS 0.11.0 (`Truth.stowed`). A benchmark version change.
