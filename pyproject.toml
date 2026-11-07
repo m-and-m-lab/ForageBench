@@ -13,6 +13,9 @@ authors = [{ name = "Mapping and Motion Lab, University of Michigan" }]
 # Isaac Sim, Isaac Lab, torch, numpy and yaml come from the Isaac Lab container.
 dependencies = ["requests"]  # The rest (PhyGS, Isaac Lab, torch, numpy, yaml) comes with the container.
 
+[project.optional-dependencies]
+claude = ["anthropic>=2.4"]  # The Claude orchestrator (agents/model/claude.py).
+
 [project.scripts]
 foragebench = "foragebench.__main__:main"
 

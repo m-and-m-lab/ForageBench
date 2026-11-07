@@ -37,6 +37,7 @@ AGENT_ALLOWED = (
     "foragebench.agents.model",
     "PIL",
     "requests",  # The OpenAI-compatible client.
+    "anthropic",  # The Claude client (optional: `pip install anthropic`).
 )
 
 

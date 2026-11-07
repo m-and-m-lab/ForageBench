@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import base64
 import io
-import json
 import os
 import time
 from pathlib import Path
@@ -26,6 +25,8 @@ from foragebench.agents.model.orchestrator import (
     Orchestrator,
     OrchestratorConfig,
     SkillCall,
+    TurnLog,
+    camera_label,
     parse_point,
     parse_skill_call,
     point_query,
@@ -65,13 +66,12 @@ class OpenAICompatibleOrchestrator(Orchestrator):
             raise ValueError(f"Set the API key in the environment variable {api_key_env}.")
         self.replies: list[str] = []  # Every reply, for the run's log.
         self.usage: list[dict] = []  # The endpoint's token counts per call, when it gives them.
-        # Each turn's text, images (JPEG), reply, thinking and timing, when a folder is given.
-        self.log_dir = None if log_dir is None else Path(log_dir)
+        self.log = TurnLog(log_dir)  # Each turn's text, images, reply, thinking and timing, when a folder is given.
 
     def act(self, observation: Observation) -> SkillCall:
         content = [{"type": "text", "text": turn_text(observation, self.config.history)}]
         for name, image in observation.images.items():
-            content.append({"type": "text", "text": f"Camera {name!r}, {image.shape[1]}x{image.shape[0]} px:"})
+            content.append({"type": "text", "text": camera_label(name, image)})
             content.append({"type": "image_url", "image_url": {"url": png_data_url(image)}})
         body = dict(
             model=self.config.model,
@@ -91,19 +91,20 @@ class OpenAICompatibleOrchestrator(Orchestrator):
         if thought:
             print(f"model thought ({len(thought)} chars): {thought[-1500:]}", flush=True)
         print(f"model reply: {text}", flush=True)
-        self._log(observation, content[0]["text"], text, thought, data, time.perf_counter() - started)
+        finish = data["choices"][0].get("finish_reason")
+        seconds = time.perf_counter() - started
+        self.log.turn(
+            len(self.replies), observation, content[0]["text"], text, thought, finish, data.get("usage"), seconds
+        )
         return parse_skill_call(text)
 
     def reset(self, brief: str, target_position: tuple[float, float, float] | None = None) -> None:
         super().reset(brief, target_position)
-        if self.log_dir is not None:  # The system prompt this episode, before its turns.
-            self.log_dir.mkdir(parents=True, exist_ok=True)
-            with (self.log_dir / "turns.jsonl").open("a") as file:
-                file.write(json.dumps(dict(kind="start", system_prompt=self.system_prompt)) + "\n")
+        self.log.start(self.system_prompt)  # The system prompt this episode, before its turns.
 
     def point(self, image, target: str) -> tuple[float, float] | None:
         """One image and the model's own grounding query, thinking off (a vLLM-served model)."""
-        query = point_query(self.config.pointer, target)
+        query = point_query(self.config.pointer, target, image.shape)
         body = dict(
             model=self.config.model,
             messages=[
@@ -125,11 +126,7 @@ class OpenAICompatibleOrchestrator(Orchestrator):
         text = data["choices"][0]["message"].get("content") or ""
         point = parse_point(text, self.config.pointer, image.shape)
         print(f"model point: {target!r} -> {point} ({text.strip()[-120:]!r})", flush=True)
-        if self.log_dir is not None:
-            record = dict(turn=len(self.replies), kind="point", target=target, reply=text, point=point)
-            record["seconds"] = round(time.perf_counter() - started, 2)
-            with (self.log_dir / "turns.jsonl").open("a") as file:
-                file.write(json.dumps(record) + "\n")
+        self.log.point(len(self.replies), target, text, point, time.perf_counter() - started)
         return point
 
     def _post(self, body: dict) -> dict:
@@ -137,26 +134,3 @@ class OpenAICompatibleOrchestrator(Orchestrator):
         response = requests.post(f"{self.base_url}/chat/completions", json=body, headers=headers, timeout=self.timeout)
         response.raise_for_status()
         return response.json()
-
-    def _log(self, observation: Observation, sent: str, text: str, thought: str, data: dict, seconds: float) -> None:
-        if self.log_dir is None:
-            return
-        from PIL import Image
-
-        self.log_dir.mkdir(parents=True, exist_ok=True)
-        turn = len(self.replies)
-        for name, image in observation.images.items():
-            Image.fromarray(image).save(self.log_dir / f"turn_{turn:03d}_{name}.jpg", quality=90)
-        record = dict(
-            kind="turn",
-            turn=turn,
-            seconds=round(seconds, 2),
-            sent=sent,
-            images=sorted(observation.images),
-            reply=text,
-            thought=thought,
-            finish=data["choices"][0].get("finish_reason"),
-            usage=data.get("usage"),
-        )
-        with (self.log_dir / "turns.jsonl").open("a") as file:
-            file.write(json.dumps(record) + "\n")

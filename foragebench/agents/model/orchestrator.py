@@ -39,6 +39,7 @@ class OrchestratorConfig:
     history: int = 8  # How many past results the model sees.
     pointer: str = "qwen"  # The grounding query the model is trained on (:data:`POINTERS`).
     thinking: bool | None = None  # A vLLM-served model's thinking on or off (None: its default).
+    effort: str | None = None  # How much Claude thinks per turn: low, medium, high, xhigh or max (None: high).
 
 
 @dataclass
@@ -81,17 +82,27 @@ def skill_list() -> str:
 
 
 POINTED = ("camera", "target")  # What a model names for a skill that acts at a point.
-POINTERS = {  # The grounding query a model family is trained on: prompt, JSON key, order of the numbers.
+POINTERS = {  # The grounding query a model family is trained on: prompt, JSON key, order of the numbers,
+    # and the grid the numbers are on (None: the image's own pixels).
     "qwen": (
         'Point to {target}. Output its point in JSON as [{{"point_2d": [x, y], "label": "{target}"}}].',
         "point_2d",
         "xy",
+        1000,
     ),
     "gemini": (
         "Point to {target}. The answer should follow the JSON format: "
         '[{{"point": <point>, "label": <label>}}]. The points are in [y, x] format normalized to 0-1000.',
         "point",
         "yx",
+        1000,
+    ),
+    "claude": (  # Claude gives coordinates in the image's pixels (1:1 up to 2576 px since Opus 4.7).
+        'Point to {target}. Output its point in JSON as [{{"point": [x, y], "label": "{target}"}}], x the '
+        "column and y the row in pixels of this {width}x{height} image.",
+        "point",
+        "xy",
+        None,
     ),
 }
 
@@ -109,14 +120,18 @@ def model_forms(name: str) -> tuple[tuple[str, ...], ...]:
     return (model_args(name), *((tuple(SKILLS[name].or_args),) if SKILLS[name].or_args else ()))
 
 
-def point_query(pointer: str, target: str) -> str:
-    return POINTERS[pointer][0].format(target=target)
+def point_query(pointer: str, target: str, shape: tuple[int, ...] | None = None) -> str:
+    """The grounding query for ``target`` in an image of ``shape`` (height, width, ...); a family that
+    points in pixels needs the shape."""
+    height, width = shape[:2] if shape is not None else (None, None)
+    return POINTERS[pointer][0].format(target=target, width=width, height=height)
 
 
 def parse_point(text: str, pointer: str, shape: tuple[int, ...]) -> tuple[float, float] | None:
     """The first point in a grounding reply, in pixels (u, v) of an image of ``shape`` (height,
-    width, ...); the reply's numbers are on a 0-1000 grid. None when there is no point."""
-    _, key, order = POINTERS[pointer]
+    width, ...); the reply's numbers are on the family's grid (0-1000, or the pixels). None when there
+    is no point."""
+    _, key, order, grid = POINTERS[pointer]
     try:
         data = json.loads(text[text.find("[") : text.rfind("]") + 1])
         first = data[0][key] if isinstance(data, list) else data[key]
@@ -125,7 +140,9 @@ def parse_point(text: str, pointer: str, shape: tuple[int, ...]) -> tuple[float,
         return None
     x, y = (a, b) if order == "xy" else (b, a)
     height, width = shape[:2]
-    return min(max(x / 1000 * width, 0.0), width - 1.0), min(max(y / 1000 * height, 0.0), height - 1.0)
+    if grid is not None:
+        x, y = x / grid * width, y / grid * height
+    return min(max(x, 0.0), width - 1.0), min(max(y, 0.0), height - 1.0)
 
 
 def build_system_prompt(brief: str, target_position: tuple[float, float, float] | None) -> str:
@@ -173,3 +190,43 @@ def turn_text(observation: Observation, limit: int) -> str:
 def history_text(history: list[SkillResult], limit: int) -> str:
     """The last ``limit`` results as lines the model can read."""
     return "\n".join(f"{r.call.name}({r.call.args}) -> {r.status}: {r.reason}" for r in history[-limit:]) or "(none)"
+
+
+def camera_label(name: str, image) -> str:
+    """The line before a camera's image in a turn: its name and size."""
+    return f"Camera {name!r}, {image.shape[1]}x{image.shape[0]} px:"
+
+
+class TurnLog:
+    """A run's record in ``folder`` (None: no record), the same for every orchestrator: ``turns.jsonl``
+    holds each episode's system prompt, then every turn (what the model was shown, its reply and
+    thinking, why it stopped, the token counts) and every pointing query; each turn's images are JPEGs."""
+
+    def __init__(self, folder: str | Path | None) -> None:
+        self.folder = None if folder is None else Path(folder)
+
+    def start(self, system_prompt: str) -> None:
+        self._write(dict(kind="start", system_prompt=system_prompt))
+
+    def turn(
+        self, turn: int, observation: Observation, sent: str, reply: str, thought: str, finish, usage, seconds: float
+    ) -> None:
+        if self.folder is None:
+            return
+        from PIL import Image
+
+        self.folder.mkdir(parents=True, exist_ok=True)
+        for name, image in observation.images.items():
+            Image.fromarray(image).save(self.folder / f"turn_{turn:03d}_{name}.jpg", quality=90)
+        record = dict(kind="turn", turn=turn, seconds=round(seconds, 2), sent=sent, images=sorted(observation.images))
+        self._write(dict(record, reply=reply, thought=thought, finish=finish, usage=usage))
+
+    def point(self, turn: int, target: str, reply: str, point, seconds: float) -> None:
+        self._write(dict(turn=turn, kind="point", target=target, reply=reply, point=point, seconds=round(seconds, 2)))
+
+    def _write(self, record: dict) -> None:
+        if self.folder is None:
+            return
+        self.folder.mkdir(parents=True, exist_ok=True)
+        with (self.folder / "turns.jsonl").open("a") as file:
+            file.write(json.dumps(record) + "\n")

@@ -22,12 +22,12 @@ Run yours with `--agent path/to/agent.py:run`.
 | `skills.py` | The skills a model may name: each estimates the affordance (`perception.py`) and calls a PhyGS composite skill (`phygs.composite`) or a session client, returning a status and reason |
 | `perception.py` | The estimator: a pixel the model points at to a world point with the robot's depth (a pixel without depth takes the nearest surface around it); a drawer front's outward direction; the handle near a pixel; an object's box from its top down to the surface it stands on. Nothing privileged. It stays in ForageBench: perception is the agent's side |
 | `loop.py` | Observe, ask, run, repeat; stops on `done`, the call budget, or the same call three times in a row |
-| `scripted.py`, `openai_compatible.py` | A fixed sequence (smoke runs); any model behind an OpenAI-compatible endpoint (Gemini on Google's, an open model such as Qwen served by vLLM). |
+| `scripted.py`, `openai_compatible.py`, `claude.py` | A fixed sequence (smoke runs); any model behind an OpenAI-compatible endpoint (Gemini on Google's, an open model such as Qwen served by vLLM); Claude through Anthropic's Messages API (`pip install anthropic`, the key in `ANTHROPIC_API_KEY`). Each sends the same prompt, turn text and images, and writes the same `turns.jsonl` |
 
 A model names what to act on: `camera` names an image it was shown (each turned upright), `target`
 says what the thing is in a few words. The harness asks the same model where that is in that one
 image, with the grounding query the model family is trained on (Qwen's `point_2d`, Gemini's
-`[y, x]` points), turns the point back into the camera's own pixel, and the robot's depth there gives
+`[y, x]` points, both on a 0-1000 grid; Claude's in the image's own pixels), turns the point back into the camera's own pixel, and the robot's depth there gives
 the world point. In one prompt with three images and a skill to choose, Qwen3.5-9B gave round
 guesses for points; asked alone it pointed within a few pixels (2026-10-30).
 
