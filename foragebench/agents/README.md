@@ -4,6 +4,21 @@ An agent is a function `run(session)`. The session (PhyGS's `AgentSession`) is t
 needs; it may import that and PhyGS's composite skills over it (`phygs.composite`), nothing else of
 PhyGS (`tests/test_imports.py` enforces it). An agent that needs setup exposes `prepare(spec, robot)`.
 
+```python
+def run(session):
+    brief = session.task.description                        # "the small green box": what, never where.
+    packet = session.observe()                              # Calibrated RGB-D, joints, localization (as the track grants).
+    session.wait(session.navigation.navigate_to(x=1.0, y=0.0, heading=0.0))   # Time passes only while the agent waits.
+    session.wait(session.manipulation.move_to_pose(pose))   # Planned by cuRobo or MoveIt; feedback says why it failed.
+    session.wait(session.manipulation.close_gripper())
+    session.wait(session.manipulation.stow())
+    session.finish("done")                                  # Then the framework stops everything, keeps the grip, evaluates.
+```
+
+Start from `template.py`, read `oracle.py` for a complete retrieve, run yours with
+`--agent path/to/agent.py:run`, or plug a vision-language model into the `vlm` harness (below). The
+session and its calls: [PhyGS's agent guide](https://github.com/m-and-m-lab/PhyGS/blob/develop/docs/agents.md).
+
 | Agent | What it does | Track |
 | --- | --- | --- |
 | `null` | Observes once and finishes. The floor and the smoke test. | any |
@@ -11,8 +26,6 @@ PhyGS (`tests/test_imports.py` enforces it). An agent that needs setup exposes `
 | `oracle` | PhyGS's scripted retrieve plan (stow, open the drawer, walk to reach the target, pick, stow) with the composite skills on the true affordances from the hints. It only chooses the skills, which is why it is the motion ceiling and not a method. | `privileged` |
 | `vlm` | A vision-language model choosing skills each turn through the harness in `model/`. | `gt_localization`, `privileged` (known target) |
 | `pointing_oracle` | The harness's skills with perfect pointing: it projects where the drawer handle and the target are into the camera images and calls the skills a model calls with those pixels. The ceiling of the skills with the estimator (`model/perception.py`) in the loop. | `privileged` |
-
-Run yours with `--agent path/to/agent.py:run`.
 
 ## The model harness (`model/`)
 

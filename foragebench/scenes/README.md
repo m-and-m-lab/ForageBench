@@ -15,5 +15,5 @@ isaaclab -p -m foragebench scenes list               # the scenes the manifest n
 isaaclab -p -m foragebench scenes fetch              # fetch the missing releases through PhyGS
 ```
 
-Releases install under `~/.cache/phygs/scenes` (`$PHYGS_SCENES` to move them). A release is
+Releases install under `~/.cache/phygs/scenes` (`$PHYGS_SCENES`, when set, is a folder searched first). A release is
 immutable; a changed scene is a new version, pinned by the episode file and recorded in every result.
