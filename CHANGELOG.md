@@ -7,7 +7,11 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 ### Added (2026-11-08)
 
 - `foragebench leaderboard` (`eval/leaderboard.py`) and its results file `leaderboard/results.json`, with the oracle and null agents on the dev set (`privileged`, five runs per episode, PhyGS 0.12.0, rules version 3). `add <suite folder>` scores a suite's runs into the file, one entry per agent (with its model and prompt) on a track and episode set: n, successes with their Wilson 95% interval, per-episode results, reached and clean rates, the runs not scored, the PhyGS and rules versions, the date and the run folder; it refuses runs from a dirty checkout or on another PhyGS than the pin, and unscored runs it cannot place in one entry. `readme` writes the README's leaderboard table from the file (`--check`: exit 1 when the table is stale), and `tests/test_leaderboard.py` fails when the README's table is not the file's. Not a benchmark version change.
-- `docs/submitting.md` (what to send, and how a result enters the results file).
+- `docs/submitting.md` (what to send, and how a result enters the results file), and `LICENSE`, a placeholder until the licence is chosen.
+
+### Changed (2026-11-08, docs)
+
+- `README.md` became the front door: what ForageBench measures and why, the requirements, the install with a check and its output, the oracle quick start with its video, the leaderboard written from `leaderboard/results.json` (in place of the baselines table of 2026-10-29, on PhyGS 0.6.0 and rules version 2), and a "Where to go next" table. The agent example moved into `foragebench/agents/README.md`, the submission rules into `docs/submitting.md`. The teaser became `assets/imgs/teaser.jpg` (204 KB; it was an 8.1 MB PNG), and the "where this fits" figure was added as `docs/figures/where_it_fits.svg` and `where_it_fits_dark.svg`, the same files as PhyGS's.
 
 ### Changed (2026-11-08)
 

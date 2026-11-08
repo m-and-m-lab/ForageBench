@@ -1,151 +1,149 @@
-# ForageBench: A Photorealistic, Physically Grounded Benchmark for Interactive Object Search
+# ForageBench: can a robot find what you asked for and pick it up? A benchmark for interactive object search in photorealistic houses
 
-[![Paper](https://img.shields.io/badge/paper-b31b1b.svg)](https://m-and-m-lab.github.io/ForageBench/assets/papers/foragebench.pdf)
-[![Website](https://img.shields.io/badge/project-page-1f6feb.svg)](https://m-and-m-lab.github.io/ForageBench/)
-[![IsaacSim](https://img.shields.io/badge/IsaacSim-6.0-76b900.svg)](https://developer.nvidia.com/isaac/sim)
+> [!NOTE]
+> This is the `develop` branch: the benchmark on PhyGS 0.12.0, with the three development episodes (manifest v0). The `main` branch is the May 2026 beta.
+
+[![IsaacSim](https://img.shields.io/badge/IsaacSim-6.2.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/6.2.0/index.html)
+[![Isaac Lab](https://img.shields.io/badge/IsaacLab-3.0.0-silver)](https://isaac-sim.github.io/IsaacLab/v3.0.0/)
+[![Python](https://img.shields.io/badge/python-3.12-blue.svg)](https://docs.python.org/3/whatsnew/3.12.html)
+[![Linux platform](https://img.shields.io/badge/platform-linux--64-orange.svg)](https://releases.ubuntu.com/24.04/)
 [![License](https://img.shields.io/badge/license-TBD-lightgrey.svg)](LICENSE)
 
+[![Paper](https://img.shields.io/badge/paper-PDF-b31b1b.svg)](https://m-and-m-lab.github.io/ForageBench/assets/papers/foragebench.pdf)
+[![Project Page](https://img.shields.io/badge/project-page-1f6feb)](https://m-and-m-lab.github.io/ForageBench/)
+[![Docs](https://img.shields.io/badge/docs-develop-informational)](https://github.com/m-and-m-lab/ForageBench/blob/develop/docs/README.md)
+[![HF Dataset](https://img.shields.io/badge/dataset-scenes-FFD21E?logo=huggingface&logoColor=black)](https://huggingface.co/datasets/mandmlabresearch/ForageBench)
+
 [Aparajito Saha](https://aparajitosaha.github.io)<sup>1</sup>, [Zhen Hao Gan](https://ganzh6880.github.io)<sup>1</sup>, Jinjia Guo<sup>1</sup>, Jacob Skwirsk<sup>1</sup>, Jeremy Acheampong<sup>1</sup>, [Anton Arapin](https://anton-arapin.github.io)<sup>1</sup>, [Chahyon Ku](https://chahyon-ku.github.io)<sup>1</sup>, [Yue Hu](https://phyllish.github.io)<sup>1</sup>, [Nima Fazeli](https://www.mmintlab.com/people/nima-fazeli/)<sup>1</sup>, [Bernadette Bucher](https://bucherb.github.io)<sup>1</sup>
+<br><sup>1</sup>[Mapping and Motion Lab](https://sites.google.com/umich.edu/mandmlab/), University of Michigan, Ann Arbor
 
-<sup>1</sup>University of Michigan, Ann Arbor
+**[🌐 Project page](https://m-and-m-lab.github.io/ForageBench/)** · **[📄 Paper](https://m-and-m-lab.github.io/ForageBench/assets/papers/foragebench.pdf)** · **[📚 Docs](https://github.com/m-and-m-lab/ForageBench/blob/develop/docs/README.md)** · **[🤗 Dataset](https://huggingface.co/datasets/mandmlabresearch/ForageBench)**
 
-**[Project page](https://m-and-m-lab.github.io/ForageBench)** &nbsp;·&nbsp; **[Paper](https://m-and-m-lab.github.io/ForageBench/assets/papers/foragebench.pdf)**
+<p align="center"><img src="assets/imgs/teaser.jpg" alt="The ForageBench overview figure from the paper" width="85%"></p>
 
-ForageBench is a benchmark for interactive object search: a mobile manipulator in a house has to find an object it was told about in words, open what hides it, and bring it into its hand. The robot is a simulated Boston Dynamics Spot with Arm; the houses are photorealistic, physically grounded scenes; nothing is faked on the way (no attached grasps, physical drawers, a legged base). ForageBench says what is asked and how it is scored. The simulation framework it runs on, [PhyGS](https://github.com/m-and-m-lab/PhyGS), is a git submodule of this repository, pinned to a release, so one recursive clone is the whole installation.
+## 📦 Overview
 
-<p align="center">
-  <img src="assets/imgs/CoRL26_ForageBench_Title.png" alt="An example episode in ForageBench" width="100%">
-</p>
+ForageBench asks a mobile manipulator in a house to find an object it was told about in words, open what hides it, and bring it into its hand. It runs on [PhyGS](https://github.com/m-and-m-lab/PhyGS) with a simulated Boston Dynamics Spot with an arm, and scores every run from the physics. It is for people who build mobile-manipulation agents, such as vision-language models that pick a skill and point at its target in a camera image, and want to know why they fail: where they searched, what they chose, or what they pointed at.
 
-## 📄 Abstract
+**Why ForageBench**
+- **Success is measured, not self-reported.** The target must end in the hand, the arm stowed and the robot upright, as the physics shows after the robot stops.
+- **Conduct is reported beside success.** Arm contacts with their force, drawers left open and objects moved are listed, never folded into the score.
+- **Ceilings are measured beside every model.** The oracle (the skills given the true targets) and the pointing oracle (the skills given perfect points in the images) show what the skills allow.
+- **One agent API, shared with PhyGS.** An agent is a function `run(session)`; every call it makes is recorded and counted in the result.
 
-Interactive semantic object search is the task of locating and retrieving a target object in an unseen, house-scale environment. This task requires both long-horizon spatial reasoning for navigation and fine-grained skills for manipulation, often demanding that an agent physically interact with the environment to make an occluded target perceivable. Prior benchmarks have largely isolated one capability or the other; we present ForageBench, a benchmark designed to study them jointly on a mobile manipulator developed in our newly introduced simulation framework PhyGS. PhyGS integrates large-scale procedural scene generation with photorealism, physical grounding, and low-level robotic control. Using PhyGS, we build an evaluation dataset of 25 house-scale scenes and 100 episodes spanning a progression of difficulty, and benchmark state-of-the-art vision-language models acting as high-level skill orchestrators. Our best baseline on a simulated Boston Dynamics Spot with Arm achieves an interactive search success of 4\%. PhyGS provides a hardware-abstracted interface mirroring Spot's SDK for development transfer between and simulation and the physical robot.
+<p align="center"><picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/figures/where_it_fits_dark.svg">
+  <img alt="Where ForageBench fits: Isaac Sim, then Isaac Lab, then PhyGS; ForageBench, agents and learned policies use it, and agents keep the real Spot's SDK terms; runs give recordings, reports and metrics" src="docs/figures/where_it_fits.svg" width="90%">
+</picture></p>
 
-## ⚠️ Note on usage
+## ✅ Requirements
 
-ForageBench is under active development at the [Mapping and Motion Lab](https://sites.google.com/umich.edu/mandmlab/), and this version of the repository is a beta release intended for early community testing and usage. Please file a GitHub issue detailing any bugs faced or major feature requests, and the team will respond to and resolve these issues as soon as possible.
-
-The `main` branch is the May 2026 beta. The `develop` branch is the benchmark described below, on PhyGS 0.12.0: the retrieve task with a physical evaluator, tracks, Nav2 navigation, cuRobo or MoveIt arm planning, 250 Hz physics. The episode set in this branch is the three development episodes (manifest v0); the 25-scene, 100-episode set and the hidden test split follow with manifest v1.
-
-## 🎯 What ForageBench measures
-
-**The task: retrieve.** The agent is told what to find ("the small green box"), never where. It succeeds when, at the end of the episode, the target is in its hand (measured, not assumed), the arm is stowed, the robot is upright and the budget was not exceeded. Nothing else counts: not standing next to the target, not a skill's "succeeded". **Conduct** is reported beside success, never folded into it: unintended arm contacts with their peak force, drawers left open; a run is `clean` when it has none. Also reported: SPL and SPL-M, skill execution success, the path walked, the time used. Everything is read from PhyGS's ground truth once, after the robot has stopped and settled. Details: [tasks/](foragebench/tasks/README.md), [eval/](foragebench/eval/README.md), the [task card](docs/task_card.md) for what is and is not claimed.
-
-**The question v1 answers.** Given reliable walking, picking and drawer skills (PhyGS's skills, under their own names), can a model find and retrieve the requested object in a home it has not seen, and when it fails, is it because of where it searched, what it chose, or what it pointed at? The oracle (the skills on true affordances) and the pointing oracle (perfect points through the harness's estimator) are measured beside every model as its ceilings.
-
-## 📦 What's in this repository
-
-Each folder has its own README; start there.
-
-1. [`foragebench/tasks/`](foragebench/tasks/README.md) — the retrieve task: brief, evaluator, thresholds, and what success, reached, progress and conduct mean.
-2. [`foragebench/episodes/`](foragebench/episodes/README.md) — the episode files (scene release, start, what the agent is told, the hidden answer, budget, optimal path), the schema, the manifest of sets.
-3. [`foragebench/tracks/`](foragebench/tracks/README.md) — what an agent may do and is told: `privileged`, `gt_localization`, `onboard` (planned).
-4. [`foragebench/agents/`](foragebench/agents/README.md) — how to write an agent; the reference agents `null`, `template`, `oracle`, `vlm` (the model harness with its skill list).
-5. [`foragebench/scenes/`](foragebench/scenes/README.md) — which scenes the episodes need and how to get them from the scene dataset.
-6. [`foragebench/eval/`](foragebench/eval/README.md) — `run`, `suite`, `results`, `describe` (the `foragebench` command); `result.json` and the metrics.
-7. `configs/benchmark_v1.yaml` — the rules: the PhyGS version pin, the backends, the end-of-episode settings, the SPL-M cost.
-8. `tests/` — unit tests with a fake ground truth and the import guards; `docs/` — task card, install guide; `third_party/phygs` — PhyGS, pinned.
+| | Tested |
+| --- | --- |
+| PhyGS | 0.12.0, pinned as the submodule `third_party/phygs` |
+| Container | PhyGS's: Isaac Sim 6.2.0, Isaac Lab 3.0.0, Python 3.12, ROS 2 Jazzy ([PhyGS requirements](https://github.com/m-and-m-lab/PhyGS/blob/develop/README.md#-requirements)) |
+| GPU | NVIDIA RTX with RT cores; tested on a GeForce RTX 4090, 24 GB |
 
 ## 🛠️ Installation
 
-1. Build and enter PhyGS's container, Isaac Lab main's base image (Isaac Sim 6.2.0, Python 3.12) with ROS 2 Jazzy, Nav2, explore_lite, MoveIt and cuRobo V2: [PhyGS docker/README.md](https://github.com/m-and-m-lab/PhyGS/blob/develop/docker/README.md). Nothing is repeated here.
-2. Clone ForageBench with its submodules into the Isaac Lab `scripts` folder and install both packages:
+In PhyGS's container ([PhyGS installation](https://github.com/m-and-m-lab/PhyGS/blob/develop/README.md#%EF%B8%8F-installation)), clone ForageBench with PhyGS at the pinned release and install both ([details](docs/install.md)):
 
 ```bash
 cd /workspace/isaaclab/scripts
 git clone --recursive -b develop https://github.com/m-and-m-lab/ForageBench.git   # --recursive: PhyGS and its Spot meshes
 cd ForageBench
-isaaclab -p -m pip install -e third_party/phygs --no-deps   # PhyGS at the pinned release
-isaaclab -p -m pip install -e . --no-deps                   # foragebench and the foragebench command
-isaaclab -p -m pytest tests -q                              # unit tests, no simulator
+isaaclab -p -m pip install -e third_party/phygs --no-deps
+isaaclab -p -m pip install -e . --no-deps
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 isaaclab -p -m pytest tests -q   # Unit tests, no simulator.
 ```
 
-3. In every shell: `source /opt/explore_ws/install/setup.bash`, `export ROS_DOMAIN_ID=48`, `export FORAGEBENCH=scripts/ForageBench` (relative to the Isaac Lab root, where every command below runs).
-4. Scenes: `isaaclab -p -m foragebench scenes list` says which releases the episodes need; `fetch` gets the missing ones (the dataset is private for now; `hf auth login` first). The grid episodes need no download. Details: [docs/install.md](docs/install.md).
-
-## 🚀 Quick start
-
-Every command is `foragebench <command>`, run with Isaac Lab's Python (`isaaclab -p -m foragebench --help`):
+**Check it works.** `describe` says what a run would do, without the simulator; the null agent then observes once and finishes, which fails the task (about a minute):
 
 ```bash
 cd /workspace/isaaclab
-# What a run would do, without the simulator: rules, PhyGS pin, scene, track, agent. Exit 1 if it would be refused.
-isaaclab -p -m foragebench describe --episode dev/grid_table --track privileged --agent oracle
-
-# The floor: the null agent observes once and finishes. Prints the scored result; ~1 minute.
+isaaclab -p -m foragebench describe --episode dev/grid_table --track privileged --agent null
+FORAGEBENCH=scripts/ForageBench
 isaaclab -p -m foragebench run --episode dev/grid_table --track privileged --agent null \
-  --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_grid_table_null
-
-# The ceiling: the oracle retrieves the box (success, clean; ~65 simulated seconds).
-isaaclab -p -m foragebench run --episode dev/grid_table --track privileged --agent oracle \
-  --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_grid_table_oracle
-
-# The dev set, five repeats each, one simulator process per episode (--fresh: one per run); prints the summary.
-isaaclab -p -m foragebench suite --set dev --track privileged --agent oracle --repeats 5 \
-  --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_dev_oracle
-
-# The table again, for any folder of runs.
-isaaclab -p -m foragebench results $FORAGEBENCH/output_check/<folder>
+  --output $FORAGEBENCH/output_check/$(date +%Y%m%d-%H%M)_null
 ```
 
-## ✍️ Writing an agent
+Expected output (paths shortened; `describe` prints more lines):
 
-An agent is a function `run(session)`; the session is the only object it needs ([PhyGS's agent contract](https://github.com/m-and-m-lab/PhyGS/blob/develop/README.md#-the-agent-contract)):
-
-```python
-def run(session):
-    brief = session.task.description                        # "the small green box": what, never where.
-    packet = session.observe()                              # Calibrated RGB-D, joints, localization (as the track grants).
-    session.wait(session.navigation.navigate_to(x=1.0, y=0.0, heading=0.0))   # Time passes only while the agent waits.
-    session.wait(session.manipulation.move_to_pose(pose))   # Planned by cuRobo or MoveIt; feedback says why it failed.
-    session.wait(session.manipulation.close_gripper())
-    session.wait(session.manipulation.stow())
-    session.finish("done")                                  # Then the framework stops everything, keeps the grip, evaluates.
+```
+PhyGS      pinned 0.12.0, installed 0.12.0
+scene      grid_storage, present: .../phygs/scene/builtin/grid_storage/scene.usda
+task       retrieve: 'the small green box'
+rules      version 3
+...
+dev/grid_table [privileged] null seed 0 completed: failure (not held), clean=True, ended by finish after 1.0 s; scripts/ForageBench/output_check/<YYYYMMDD-HHMM>_null/result.json
 ```
 
-Start from `template.py`, read `oracle.py` for a complete retrieve, run yours with `--agent path/to/agent.py:run`, or plug a vision-language model into the `vlm` harness: [agents/README.md](foragebench/agents/README.md).
+## 🚀 Quick start
 
-## 📊 Baselines (dev set, 2026-10-29, PhyGS 0.6.0, evaluator rules version 2)
+The oracle walks to the table, picks the small green box and stows the arm, then its video is rendered:
 
-| Agent | Track | Runs | Success | Reached | Clean | Skill exec. | Path m | Sim s | Note |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| oracle | privileged | 15 (3 episodes × 5 seeds) | 15/15 (Wilson 95%: 0.80–1.00) | 15/15 | 5/15 | 0.90 | 2.9 | 103 | The noise floor of the skills; every progress stage in every run, every jaw on the target at the end. `grid_table` is clean every time; the drawer episodes succeed every time but leave the drawer open (0.22–0.29 m) and touch the unit (peak 3–77 N), because the plan does not close it. No other object moved. |
-| null | gt_localization | 1 (house) | 0/1 | 0/1 | — | — | 0 | 1 | The floor: no progress stage reached. |
+```bash
+cd /workspace/isaaclab
+OUT=scripts/ForageBench/output_check/$(date +%Y%m%d-%H%M)_oracle
+isaaclab -p -m foragebench run --episode dev/grid_table --track privileged --agent oracle --output $OUT
+isaaclab -p -m phygs replay $OUT   # The video: $OUT/replay/replay.mp4
+```
 
-Per episode (oracle): `grid_table` 5/5 in 61–79 s; `grid_drawer` 5/5 in 109–134 s; `house_drawer` 5/5 in 112–127 s. SPL is not reported for the dev episodes: no optimal path lengths until episodes state them. The model baselines (`vlm` with Qwen3-VL and Gemini Robotics-ER on `gt_localization`) are next.
+## 📊 Leaderboard
 
-## 📤 Submitting results
+Written from [`leaderboard/results.json`](leaderboard/results.json); [how to submit](docs/submitting.md). The development episodes bound what the skills can do; they say nothing about unseen houses ([task card](docs/task_card.md)).
 
-Send the suite's `summary.json` and the per-run `result.json` files, from clean checkouts (`unpinned` 0: both `provenance.foragebench.dirty` and `provenance.code.dirty` false) with `phygs_version` equal to the pinned one. We rerun a sample of episodes with your agent before listing a result.
+<!-- leaderboard: written by `foragebench leaderboard readme` from leaderboard/results.json -->
+| Agent | Track | Set | n | Success | Wilson 95% | Clean successes | Per episode (successes/runs) | PhyGS | Rules | Date |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| oracle | `privileged` | dev | 15 | 15/15 | 0.80–1.00 | 5/15 | `grid_drawer` 5/5, `grid_table` 5/5, `house_drawer` 5/5 | 0.12.0 | 3 | 2026-11-08 |
+| null | `privileged` | dev | 15 | 0/15 | 0.00–0.20 | 0/15 | `grid_drawer` 0/5, `grid_table` 0/5, `house_drawer` 0/5 | 0.12.0 | 3 | 2026-11-08 |
+<!-- /leaderboard -->
 
-## 📚 Documentation
+## 🧭 Where to go next
 
-[docs/README.md](docs/README.md): the [task card](docs/task_card.md), [installation](docs/install.md). Changes: [CHANGELOG.md](CHANGELOG.md). Rules for contributors and coding agents, including the submodule rules: [AGENTS.md](AGENTS.md).
+| I want to… | Read |
+| --- | --- |
+| write an agent, or plug in a vision-language model | [foragebench/agents/](foragebench/agents/README.md) |
+| know what an agent may do and is told (tracks) | [foragebench/tracks/](foragebench/tracks/README.md) |
+| read or add episodes | [foragebench/episodes/](foragebench/episodes/README.md) |
+| understand the task and its task evaluator | [docs/task_card.md](docs/task_card.md) · [foragebench/tasks/](foragebench/tasks/README.md) |
+| run suites and read the metrics | [foragebench/eval/](foragebench/eval/README.md) |
+| submit results | [docs/submitting.md](docs/submitting.md) |
+| browse the docs, or see what changed | [docs/README.md](docs/README.md) · [CHANGELOG.md](CHANGELOG.md) |
+| contribute (people and coding agents), or report a bug | [AGENTS.md](AGENTS.md) · [GitHub issues](https://github.com/m-and-m-lab/ForageBench/issues) |
+
+## 🗂️ Repository layout
+
+| Path | Purpose | Docs |
+| --- | --- | --- |
+| `foragebench/` | The benchmark: tasks, episodes, tracks, agents, scenes, eval (the `foragebench` command) | [docs](docs/README.md) |
+| `configs/` | The rules: the PhyGS pin, the backends, the end-of-episode settings | [task card](docs/task_card.md) |
+| `leaderboard/` | `results.json`, the baselines the leaderboard is written from | [submitting](docs/submitting.md) |
+| `tests/` | Unit tests with a fake ground truth, and the import guards | — |
+| `third_party/` | PhyGS, pinned to a release | [README](third_party/README.md) |
+| `.github/` | The check that the PhyGS pin is a tagged release | — |
+| `docs/` | Task card, installation, submitting, figures | [README](docs/README.md) |
+| `assets/` | The teaser image | — |
+
+## 🧱 Scenes and data
+
+The grid episodes use a scene built into PhyGS. The house episode (`dev/house_drawer`) uses the house scene, release 1.1.0, from the scene dataset [`mandmlabresearch/ForageBench`](https://huggingface.co/datasets/mandmlabresearch/ForageBench) on Hugging Face: published at dataset commit `37d8744`, 535.5 MB, private for now, licence to be announced. Fetching it: [foragebench/scenes/](foragebench/scenes/README.md).
 
 ## 📝 Citation
 
-If you use ForageBench in your research, please cite:
-
 ```bibtex
-@misc{2026foragebench,
-  title     = {ForageBench: A Photorealistic, Physically Grounded Benchmark for Interactive Object Search},
-  author    = {Saha, Aparajito and Gan, Zhen Hao and Guo, Jinjia and
-               Skwirsk, Jacob and Acheampong, Jeremy and Arapin, Anton and
-               Ku, Chahyon and Hu, Yue and Fazeli, Nima and Bucher, Bernadette},
-  year      = {2026}
+@misc{saha2026foragebench,
+  title  = {ForageBench: A Photorealistic, Physically Grounded Benchmark for Interactive Object Search},
+  author = {Saha, Aparajito and Gan, Zhen Hao and Guo, Jinjia and
+            Skwirsk, Jacob and Acheampong, Jeremy and Arapin, Anton and
+            Ku, Chahyon and Hu, Yue and Fazeli, Nima and Bucher, Bernadette},
+  year   = {2026}
 }
 ```
 
-## 🙏 Acknowledgments
+## ⚖️ License and acknowledgments
 
-ForageBench builds on [PhyGS](https://github.com/m-and-m-lab/PhyGS) and, through it, on
-[Infinigen / Infinigen-Indoors](https://github.com/princeton-vl/infinigen),
-[NVIDIA IsaacSim](https://developer.nvidia.com/isaac/sim),
-[IsaacLab](https://github.com/isaac-sim/IsaacLab),
-[Objaverse-XL](https://objaverse.allenai.org/),
-[cuRobo](https://curobo.org/),
-[Nav2](https://nav2.org/),
-[explore_lite (m-explore-ros2)](https://github.com/robo-friends/m-explore-ros2) and
-[MoveIt 2](https://moveit.picknik.ai/).
+The licence is to be announced ([LICENSE](LICENSE)). Isaac Sim is proprietary NVIDIA software under its own licence terms.
 
-We thank the authors and maintainers of these tools. Please refer to each project's license and cite them as appropriate.
+ForageBench builds on [PhyGS](https://github.com/m-and-m-lab/PhyGS) and, through it, on [Isaac Sim](https://developer.nvidia.com/isaac/sim), [Isaac Lab](https://github.com/isaac-sim/IsaacLab), [Infinigen-Indoors](https://github.com/princeton-vl/infinigen), [Objaverse-XL](https://objaverse.allenai.org/), [cuRobo](https://curobo.org/), [Nav2](https://nav2.org/), [explore_lite](https://github.com/robo-friends/m-explore-ros2) and [MoveIt 2](https://moveit.picknik.ai/); please refer to each project's licence and cite it as its authors ask.

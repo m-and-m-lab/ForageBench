@@ -110,3 +110,7 @@ def test_the_readme_table_is_written_between_its_markers_and_checked(tmp_path):
     text = readme.read_text()
     assert "| null | `privileged` | dev | 1 | 0/1 | 0.00–0.79 |" in text and "old" not in text
     assert text.endswith(f"{leaderboard.END}\n\nAfter.\n")
+
+
+def test_the_repository_readme_shows_the_results_file():
+    assert leaderboard.main(["readme", "--check"]) == 0
