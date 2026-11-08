@@ -27,6 +27,7 @@ PHYGS_PUBLIC = {
     "phygs.world",  # What a benchmark drives (PhyGS docs/world.md); never its submodules.
     "phygs.scene.registry",  # Scenes by id.
     "phygs.robots.description",
+    "phygs.recording.reader",  # A run's recording read back (the model's totals from its records).
     "phygs",  # The bare package, for its version only.
 }
 AGENT_ALLOWED = (

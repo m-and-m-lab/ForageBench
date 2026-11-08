@@ -4,8 +4,15 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Changed (2026-11-08)
+
+- **The model's side of a run is in the episode's recording**, not in `agent/turns.jsonl` and JPEG files: `orchestrator.TurnLog` keeps it through PhyGS's `session.log` (`/agent/log/model/*` in `episode.rrd`): the system prompt; each turn and pointing query as it went over the wire (the request with each image named, the raw response, the request id, the model that answered, the client's retries, the seconds, the token counts) with the images exactly as sent (PNG); what the harness made of each reply and what the model was told (`model/result`); every error with its origin, `model`, `api`, `harness` or `phygs` (`model/error`, with the traceback). Each turn's skill runs in a step `turn N: skill`, so its PhyGS calls sit inside it in the audit. A pointing query on a turn's image sends the turn's own PNG bytes. Needs PhyGS 0.12.0 (`session.log`). Not a benchmark version change: the model is sent the same.
+- `result.json` has `run_id` (the recording's) and `model` (a model agent's totals from the recording: turns, pointing queries, errors by origin, tokens, seconds, retries); `agent/model.json` (in `agent_setup`) has `prompt_sha256` (the system prompt's template, the skill menu, the grounding query and the turn text's form) and `menu_sha256`.
+- `foragebench results` groups by (track, agent, model, prompt hash): runs of different models or prompts no longer pool (B39).
+
 ### Removed (2026-11-08)
 
+- `agent/turns.jsonl` and the per-turn JPEGs (`TurnLog(folder)`), and the orchestrators' `log_dir`: the recording holds it all.
 - `run.py --record` (the live third-person video; PhyGS 0.12.0 removes it from the World). `suite.py --record` now renders each run's video after the run from its recording, with `phygs replay` (`replay/replay.mp4` beside each `episode.rrd`; needs PhyGS 0.12.0's recording). Not a benchmark version change.
 
 ### Changed (2026-11-07)

@@ -102,6 +102,33 @@ def progress_funnel(results: list[dict]) -> dict[str, float | None]:
     return funnel
 
 
+def model_totals(log) -> dict | None:
+    """A model agent's totals from the records it kept in the run's recording (``log``: the records of
+    ``Recording.agent_log()``, each with ``topic`` and ``record``): turns, pointing queries, errors by
+    origin, the token counts summed by name, the seconds the model took and the retries its client
+    made; None when the run kept no model record."""
+    exchanges = [r.record for r in log if r.topic in ("model/turn", "model/point")]
+    errors = [r.record for r in log if r.topic == "model/error"]
+    if not exchanges and not errors:
+        return None
+    tokens: dict[str, int] = {}
+    for record in exchanges:
+        for name, value in (record.get("usage") or {}).items():
+            if isinstance(value, int) and not isinstance(value, bool):
+                tokens[name] = tokens.get(name, 0) + value
+    origins: dict[str, int] = {}
+    for record in errors:
+        origins[record["origin"]] = origins.get(record["origin"], 0) + 1
+    return dict(
+        turns=sum(r.topic == "model/turn" for r in log),
+        points=sum(r.topic == "model/point" for r in log),
+        errors=origins,
+        tokens=tokens,
+        seconds=round(sum(record.get("seconds") or 0.0 for record in exchanges), 1),
+        retries=sum(record.get("retries") or 0 for record in exchanges),
+    )
+
+
 def unpinned(result: dict) -> bool:
     """Whether the run came from a dirty checkout of PhyGS (``code``) or ForageBench."""
     provenance = result.get("provenance", {})
@@ -152,9 +179,16 @@ def rules_version(results: list[dict]) -> int | None:
     return versions.pop() if versions else None
 
 
+def setup_of(result: dict) -> tuple[str | None, str | None]:
+    """(model, prompt hash) of a model agent's run, from its ``agent_setup``; (None, None) for others."""
+    setup = result.get("agent_setup") or {}
+    return setup.get("model"), setup.get("prompt_sha256")
+
+
 def summarize(folder: Path, cost_per_manipulation_m: float = 1.0) -> dict:
-    """Rates per (track, agent) and per episode over the completed runs under ``folder``; the runs
-    that cannot be scored, listed with their reasons."""
+    """Rates per (track, agent, model, prompt) and per episode over the completed runs under
+    ``folder`` (runs of different models or prompts never pool); the runs that cannot be scored,
+    listed with their reasons."""
     every, missing = load_results(Path(folder))
     results = [r for r in every if r["status"] == "completed"]
     not_scored = dict(
@@ -164,9 +198,9 @@ def summarize(folder: Path, cost_per_manipulation_m: float = 1.0) -> dict:
     )
     groups: dict[tuple, list[dict]] = defaultdict(list)
     for result in results:
-        groups[(result["track"], result["agent"])].append(result)
+        groups[(result["track"], result["agent"], *setup_of(result))].append(result)
     out = dict(runs=len(results), rules_version=rules_version(results), not_scored=not_scored, groups=[])
-    for (track, agent), items in sorted(groups.items()):
+    for (track, agent, model, prompt), items in sorted(groups.items(), key=lambda item: tuple(map(str, item[0]))):
         successes = [r for r in items if r["outcome"] == "success"]
         clean = [r for r in successes if r.get("clean")]
         reached = [r for r in items if r.get("reached")]
@@ -180,6 +214,8 @@ def summarize(folder: Path, cost_per_manipulation_m: float = 1.0) -> dict:
             dict(
                 track=track,
                 agent=agent,
+                model=model,
+                prompt_sha256=prompt,
                 runs=len(items),
                 successes=len(successes),
                 success_rate=len(successes) / len(items),
@@ -231,6 +267,8 @@ def table(summary: dict) -> str:
             f" {low:>5.2f}-{high:<6.2f} {g['reached_rate']:>7.2f} {g['clean_rate']:>6.2f} {spl_text:>5} {skills:>6}"
             f" {g['mean_path_length_m']:>6.1f} {g['mean_sim_seconds']:>6.0f}  {funnel}"
         )
+        if g.get("model") or g.get("prompt_sha256"):
+            lines.append(f"  model {g.get('model')}, prompt {(g.get('prompt_sha256') or '?')[:12]}")
         if g["unpinned"]:
             lines.append(f"  {g['unpinned']} of these runs came from a dirty checkout: do not publish them")
     for status, runs in summary["not_scored"].items():

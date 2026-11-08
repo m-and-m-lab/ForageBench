@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from foragebench.eval.results import skill_execution_success, spl, spl_m, summarize
+from foragebench.eval.results import model_totals, skill_execution_success, spl, spl_m, summarize, table
 
 
 def test_spl_weights_success_by_path_efficiency():
@@ -92,6 +92,58 @@ def test_runs_scored_under_different_rules_versions_are_never_pooled(tmp_path):
     write_runs(tmp_path, {"a": run(rules={"version": 1}), "b": run(rules={"version": 2})})
     with pytest.raises(ValueError, match="rules versions"):
         summarize(tmp_path)
+
+
+def test_runs_of_different_models_or_prompts_are_never_pooled(tmp_path):
+    claude = dict(model="claude-opus-5-5", prompt_sha256="p1" * 32)
+    write_runs(
+        tmp_path,
+        {
+            "a": run(agent="vlm", agent_setup=claude),
+            "b": run(agent="vlm", agent_setup=claude, outcome="failure"),
+            "c": run(agent="vlm", agent_setup=dict(claude, model="Qwen/Qwen3.5-9B")),
+            "d": run(agent="vlm", agent_setup=dict(claude, prompt_sha256="p2" * 32)),
+            "e": run(agent="oracle"),
+        },
+    )
+    groups = summarize(tmp_path)["groups"]
+    found = sorted((g["agent"], g["model"], (g["prompt_sha256"] or "")[:2], g["runs"]) for g in groups)
+    assert found == [
+        ("oracle", None, "", 1),
+        ("vlm", "Qwen/Qwen3.5-9B", "p1", 1),
+        ("vlm", "claude-opus-5-5", "p1", 2),
+        ("vlm", "claude-opus-5-5", "p2", 1),
+    ]
+    assert "model claude-opus-5-5, prompt p1p1p1p1p1p1" in table(summarize(tmp_path))
+
+
+def test_a_model_run_s_totals_come_from_the_records_it_kept():
+    from types import SimpleNamespace
+
+    def kept(topic, **record):
+        return SimpleNamespace(topic=topic, record=record)
+
+    log = [
+        kept("model/setup", model="m"),
+        kept(
+            "model/turn", usage={"input_tokens": 100, "output_tokens": 20, "details": {"x": 1}}, seconds=2.0, retries=1
+        ),
+        kept("model/point", usage={"input_tokens": 50}, seconds=0.5, retries=0),
+        kept("model/error", origin="model"),
+        kept("model/error", origin="api"),
+        kept("model/error", origin="model"),
+        kept("notes"),
+    ]
+    totals = model_totals(log)
+    assert totals == dict(
+        turns=1,
+        points=1,
+        errors={"model": 2, "api": 1},
+        tokens={"input_tokens": 150, "output_tokens": 20},
+        seconds=2.5,
+        retries=1,
+    )
+    assert model_totals([kept("notes")]) is None  # An agent that kept no model record.
 
 
 def test_an_unknown_status_is_an_error(tmp_path):

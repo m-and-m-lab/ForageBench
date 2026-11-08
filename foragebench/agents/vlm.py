@@ -19,9 +19,10 @@
 ``FORAGEBENCH_MAX_TOKENS`` the reply budget, reasoning included (default 4096; 16000 for Claude);
 ``FORAGEBENCH_POINTER`` the grounding query the model is trained on, ``qwen``, ``gemini`` or ``claude``
 (default from the model's name); ``FORAGEBENCH_THINKING=0`` or ``1`` turns a vLLM-served model's thinking off
-or on. The run's ``agent/`` folder holds ``model.json`` (the model and its settings) and
-``turns.jsonl`` (the system prompt, then every turn: what the model was shown, its reply and thinking,
-each pointing query), with the images of each turn.
+or on. The run's ``agent/model.json`` holds the model, its settings and the hashes of what it is
+asked (``result.json`` carries it). Every exchange with the model goes into the episode's recording
+(``episode.rrd``, ``/agent/log/model/*``: the request, the raw response, the images as sent, what
+the harness made of the reply, and every error with its origin; :class:`.model.orchestrator.TurnLog`).
 
     GEMINI_API_KEY=... FORAGEBENCH_ORCHESTRATOR=openai FORAGEBENCH_MODEL=gemini-robotics-er-1.5-preview \\
     isaaclab -p -m foragebench run --episode dev/grid_table --track gt_localization --agent vlm --output ...
@@ -39,7 +40,7 @@ import os
 from pathlib import Path
 
 from foragebench.agents.model.loop import LoopConfig, run_loop
-from foragebench.agents.model.orchestrator import OrchestratorConfig, SkillCall
+from foragebench.agents.model.orchestrator import OrchestratorConfig, SkillCall, prompt_hashes
 
 
 def orchestrator():
@@ -68,21 +69,21 @@ def orchestrator():
             config,
             os.environ.get("FORAGEBENCH_BASE_URL", GEMINI),
             os.environ.get("FORAGEBENCH_API_KEY_ENV", "GEMINI_API_KEY") or None,
-            log_dir=os.environ.get("FORAGEBENCH_AGENT_DIR"),
         )
     if claude:
         from foragebench.agents.model.claude import EFFORT, ClaudeOrchestrator
 
         config.effort = config.effort or EFFORT
-        return ClaudeOrchestrator(config, log_dir=os.environ.get("FORAGEBENCH_AGENT_DIR"))
+        return ClaudeOrchestrator(config)
     raise ValueError(
         f"Unknown FORAGEBENCH_ORCHESTRATOR {kind!r}: scripted, openai (Gemini, or an open model) or claude"
     )
 
 
 def settings(chosen, loop: LoopConfig) -> dict:
-    """What produced a run: the orchestrator, the model and where it answered, and every setting that
-    changes what the model is asked (the system prompt is the first line of ``turns.jsonl``)."""
+    """What produced a run: the orchestrator, the model and where it answered, every setting that
+    changes what the model is asked, and the hashes of the prompt and the skill menu (the episode's
+    system prompt itself is the recording's ``model/start``)."""
     config = chosen.config
     return dict(
         orchestrator=os.environ.get("FORAGEBENCH_ORCHESTRATOR", "scripted"),
@@ -95,14 +96,17 @@ def settings(chosen, loop: LoopConfig) -> dict:
         history=config.history,
         max_calls=loop.max_calls,
         repeat_limit=loop.repeat_limit,
+        **prompt_hashes(config.pointer, config.history),
     )
 
 
 def run(session) -> None:
     budget = int(os.environ.get("FORAGEBENCH_MAX_CALLS", "40"))
     chosen, loop = orchestrator(), LoopConfig(max_calls=budget)
+    setup = settings(chosen, loop)
     folder = os.environ.get("FORAGEBENCH_AGENT_DIR")  # The run's agent/ folder (eval/run.py sets it).
     if folder:
         Path(folder).mkdir(parents=True, exist_ok=True)
-        (Path(folder) / "model.json").write_text(json.dumps(settings(chosen, loop), indent=1))
+        (Path(folder) / "model.json").write_text(json.dumps(setup, indent=1))
+    session.log("model/setup", setup)
     run_loop(session, chosen, loop)

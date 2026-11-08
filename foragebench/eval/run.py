@@ -15,7 +15,9 @@ The benchmark rules (``configs/benchmark_v1.yaml``) pin the PhyGS version, the b
 end-of-episode settings; the result records them with the episode's scene release and every hash
 PhyGS puts in the report's provenance. ``result.json`` is written in every case: its ``status`` is
 ``completed`` (scored), ``setup_error`` (PhyGS's start check failed; the agent never ran) or ``error``
-(the simulator or the World broke). The exit code is 1 only for ``error``.
+(the simulator or the World broke). The exit code is 1 only for ``error``. It names the run's
+``run_id`` (its recording, ``episode.rrd``) and, for a model agent, the model's totals read from that
+recording (turns, pointing queries, errors by origin, tokens, seconds, retries).
 
 ``--repeats N`` runs N episodes in this one simulator process (seeds ``seed`` to ``seed + N - 1``,
 each in ``<output>/s<seed>``): PhyGS restores the start state between them (``World.next_episode``),
@@ -39,6 +41,7 @@ from phygs.world import EpisodeSpec
 import foragebench
 from foragebench.agents import load_agent
 from foragebench.episodes import load_episode
+from foragebench.eval import results
 from foragebench.eval.results import grasps
 from foragebench.tasks import load_task
 
@@ -134,14 +137,23 @@ def agent_setup(folder: Path) -> dict | None:
     return dict(json.loads(path.read_text()), sha256=file_sha256(path))
 
 
+def model_totals(folder: Path) -> dict | None:
+    """The model's totals (:func:`foragebench.eval.results.model_totals`) from the run's recording."""
+    from phygs.recording.reader import Recording
+
+    return results.model_totals(Recording(folder).agent_log()) if (folder / "episode.rrd").is_file() else None
+
+
 def write_error(folder: Path, seed: int, reason: str) -> None:
     """The result of a run that broke, or never ran because an earlier one broke the process."""
     folder.mkdir(parents=True, exist_ok=True)
+    report = folder / "report.json"
     result = dict(
         **identity(seed),
         status="error",
         reason=reason,
-        report="report.json" if (folder / "report.json").exists() else None,
+        run_id=json.loads(report.read_text()).get("run_id") if report.exists() else None,
+        report="report.json" if report.exists() else None,
     )
     (folder / "result.json").write_text(json.dumps(result, indent=1))
 
@@ -185,6 +197,7 @@ def write_result(folder: Path, seed: int, report: dict, *, episode_in_process: i
     counts = skill_counts(report["commands"])
     result = dict(
         **identity(seed),
+        run_id=report["run_id"],  # The recording's id (episode.rrd): every file of the run carries it.
         status=report["status"],
         outcome=evaluation.get("outcome"),
         # Not scored: why (the start check's problems), not the evaluation's "not evaluated".
@@ -212,6 +225,7 @@ def write_result(folder: Path, seed: int, report: dict, *, episode_in_process: i
         episode_in_process=episode_in_process,  # 1: a fresh process; more: a repeat after a reset.
         usage=report["usage"],
         agent_setup=agent_setup(folder),
+        model=model_totals(folder),
         scene=dict(id=spec.scene.id, version=spec.scene.version, usd_sha256=report["provenance"]["scene_usd"]),
         provenance=dict(
             **report["provenance"],

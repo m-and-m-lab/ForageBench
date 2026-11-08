@@ -7,12 +7,16 @@
 
 Carried over from the May beta (prompt template, argument-checked skill calls) and re-targeted at
 PhyGS's session: a skill here is one of :mod:`.skills`, each a few session calls. The orchestrator
-never touches the session itself; :mod:`.loop` runs it.
+never touches the session itself; :mod:`.loop` runs it and gives it the run's :class:`TurnLog`.
 """
 
 from __future__ import annotations
 
+import base64
+import hashlib
+import io
 import json
+import traceback
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -45,11 +49,12 @@ class OrchestratorConfig:
 @dataclass
 class Observation:
     """What the model is shown each turn: images by camera name (HxWx3 uint8), the robot's planar
-    pose (x, y, heading) when the track grants it, and the latest skill results."""
+    pose (x, y, heading) when the track grants it, the latest skill results, and the turn's number."""
 
     images: dict[str, Any]
     pose: tuple[float, float, float] | None
     history: list[SkillResult] = field(default_factory=list)
+    turn: int = 0
 
 
 class Orchestrator(ABC):
@@ -58,11 +63,16 @@ class Orchestrator(ABC):
     def __init__(self, config: OrchestratorConfig | None = None) -> None:
         self.config = config or OrchestratorConfig()
         self.system_prompt = ""
+        self.log = TurnLog()  # The run's record (the loop gives it the session's); none until then.
 
-    def reset(self, brief: str, target_position: tuple[float, float, float] | None = None) -> None:
+    def reset(
+        self, brief: str, target_position: tuple[float, float, float] | None = None, log: TurnLog | None = None
+    ) -> None:
         """Start an episode: ``brief`` is the task's public description; ``target_position`` is
-        given only on a track that grants the target's position."""
+        given only on a track that grants the target's position; ``log`` keeps the run's record."""
         self.system_prompt = build_system_prompt(brief, target_position)
+        self.log = log or TurnLog()
+        self.log.start(self.system_prompt)
 
     @abstractmethod
     def act(self, observation: Observation) -> SkillCall:
@@ -145,6 +155,19 @@ def parse_point(text: str, pointer: str, shape: tuple[int, ...]) -> tuple[float,
     return min(max(x, 0.0), width - 1.0), min(max(y, 0.0), height - 1.0)
 
 
+def sha256(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
+
+
+def prompt_hashes(pointer: str, history: int) -> dict[str, str]:
+    """What a model is asked, as hashes, so results of different prompts never pool: ``prompt_sha256``
+    covers the system prompt's template, the skill menu, the grounding query of ``pointer``'s family
+    and the turn text's form; ``menu_sha256`` the skill menu alone."""
+    sample = turn_text(Observation(images={}, pose=(0.0, 0.0, 0.0)), history)
+    parts = dict(system=(PROMPTS / "system.md").read_text(), menu=skill_list(), point=POINTERS[pointer][0], turn=sample)
+    return dict(prompt_sha256=sha256(json.dumps(parts, sort_keys=True)), menu_sha256=sha256(skill_list()))
+
+
 def build_system_prompt(brief: str, target_position: tuple[float, float, float] | None) -> str:
     location = (
         "The target's location is unknown."
@@ -197,36 +220,104 @@ def camera_label(name: str, image) -> str:
     return f"Camera {name!r}, {image.shape[1]}x{image.shape[0]} px:"
 
 
-class TurnLog:
-    """A run's record in ``folder`` (None: no record), the same for every orchestrator: ``turns.jsonl``
-    holds each episode's system prompt, then every turn (what the model was shown, its reply and
-    thinking, why it stopped, the token counts) and every pointing query; each turn's images are JPEGs."""
+def png_bytes(image) -> bytes:
+    """An HxWx3 uint8 image as PNG (lossless): what a model is sent, and what the run's record keeps."""
+    from PIL import Image
 
-    def __init__(self, folder: str | Path | None) -> None:
-        self.folder = None if folder is None else Path(folder)
+    buffer = io.BytesIO()
+    Image.fromarray(image).save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def base64_text(data: bytes) -> str:
+    return base64.b64encode(data).decode()
+
+
+def without_images(value, sent: dict[str, str]):
+    """``value`` (a request) with each string of ``sent``'s values (an image as it went into the
+    request: base64 or a data URL) replaced by ``<image NAME>``, NAME its key: the request as sent,
+    the images kept apart."""
+    if isinstance(value, dict):
+        return {key: without_images(item, sent) for key, item in value.items()}
+    if isinstance(value, list):
+        return [without_images(item, sent) for item in value]
+    if isinstance(value, str):
+        return next((f"<image {name}>" for name, text in sent.items() if value == text), value)
+    return value
+
+
+ORIGINS = {"phygs": "phygs", "foragebench": "harness", "anthropic": "api", "httpx": "api", "requests": "api"}
+
+
+def origin(error: BaseException) -> str:
+    """Where an error came from: the package of the innermost frame that is ours or a client's
+    (``phygs``: a PhyGS call refused or failed; ``harness``: ForageBench's code; ``api``: the model's
+    client or its server); ``harness`` when none is."""
+    frames = traceback.extract_tb(error.__traceback__)
+    for frame in reversed(frames):
+        for package, name in ORIGINS.items():
+            if f"/{package}/" in frame.filename.replace("\\", "/"):
+                return name
+    return "harness"
+
+
+class TurnLog:
+    """The model's side of a run, kept in the run's recording through ``sink`` (``session.log``; None:
+    not kept), the same for every orchestrator:
+
+    - ``model/start``: the episode's system prompt and its hash.
+    - ``model/turn``: each turn as it went over the wire: the request (each image a placeholder naming
+      it), the raw response, the request id, the model that answered, the retries the client made, the
+      seconds, the reply text, its thinking, why it stopped, the token counts; the images as sent (PNG).
+    - ``model/point``: each pointing query, the same way; its image is the turn's of that name
+      (``image``), or kept with it when it was none of them.
+    - ``model/result`` (from :mod:`.loop`): the call the turn's reply named, the call the harness made of
+      it (a pixel in the camera's own image), and the status and reason the model is told.
+    - ``model/error`` (from :mod:`.loop`): an error, its origin (``model``, ``api``, ``harness``,
+      ``phygs``), type, message and traceback.
+    """
+
+    def __init__(self, sink=None) -> None:
+        self._sink = sink
+        self._turn: dict[int, tuple[str, bytes]] = {}  # The current turn's images: id(array) -> (name, PNG).
 
     def start(self, system_prompt: str) -> None:
-        self._write(dict(kind="start", system_prompt=system_prompt))
+        self._write("model/start", dict(system_prompt=system_prompt, sha256=sha256(system_prompt)))
 
-    def turn(
-        self, turn: int, observation: Observation, sent: str, reply: str, thought: str, finish, usage, seconds: float
-    ) -> None:
-        if self.folder is None:
-            return
-        from PIL import Image
+    def encode(self, images: dict) -> dict[str, bytes]:
+        """A turn's images as PNG, by camera name; kept so a pointing query on one sends the same bytes."""
+        self._turn, pngs = {}, {}
+        for name, image in images.items():  # One encoding per array, even under two names.
+            pngs[name] = self._turn.setdefault(id(image), (name, png_bytes(image)))[1]
+        return pngs
 
-        self.folder.mkdir(parents=True, exist_ok=True)
-        for name, image in observation.images.items():
-            Image.fromarray(image).save(self.folder / f"turn_{turn:03d}_{name}.jpg", quality=90)
-        record = dict(kind="turn", turn=turn, seconds=round(seconds, 2), sent=sent, images=sorted(observation.images))
-        self._write(dict(record, reply=reply, thought=thought, finish=finish, usage=usage))
+    def encoded(self, image) -> tuple[str | None, bytes]:
+        """``image`` as PNG: (its name, the turn's bytes) when it is one of the turn's images, else (None,
+        its own bytes)."""
+        return self._turn.get(id(image)) or (None, png_bytes(image))
 
-    def point(self, turn: int, target: str, reply: str, point, seconds: float) -> None:
-        self._write(dict(turn=turn, kind="point", target=target, reply=reply, point=point, seconds=round(seconds, 2)))
+    def turn(self, turn: int, images: dict[str, bytes], **fields) -> None:
+        self._write("model/turn", dict(turn=turn, images=sorted(images), **fields), images)
 
-    def _write(self, record: dict) -> None:
-        if self.folder is None:
-            return
-        self.folder.mkdir(parents=True, exist_ok=True)
-        with (self.folder / "turns.jsonl").open("a") as file:
-            file.write(json.dumps(record) + "\n")
+    def point(self, turn: int, name: str | None, png: bytes, **fields) -> None:
+        self._write("model/point", dict(turn=turn, image=name, **fields), {} if name else {"image": png})
+
+    def result(self, turn: int, **fields) -> None:
+        self._write("model/result", dict(turn=turn, **fields))
+
+    def error(self, turn: int, kind: str, error: BaseException) -> None:
+        """``error`` in ``turn``; ``kind`` the origin when known (``model``), else :func:`origin`'s."""
+        self._write(
+            "model/error",
+            dict(
+                turn=turn,
+                origin=kind or origin(error),
+                type=type(error).__name__,
+                message=str(error),
+                traceback="".join(traceback.format_exception(error)),
+            ),
+        )
+
+    def _write(self, topic: str, record: dict, images: dict | None = None) -> None:
+        if self._sink is not None:
+            self._sink(topic, record, images or {})

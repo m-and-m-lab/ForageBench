@@ -8,6 +8,8 @@ over a fake session with a fake camera."""
 
 from __future__ import annotations
 
+import base64
+import json
 import math
 from contextlib import contextmanager
 from types import SimpleNamespace
@@ -146,6 +148,7 @@ class FakeSession:
 
     def __init__(self, grants=(), holding=False, pose=True, stowed=True, walks=False):
         self.grants, self.calls, self.finished, self.walks = tuple(grants), [], None, walks
+        self.logged, self.steps = [], []  # What session.log kept; the steps entered.
         self.robot = load_robot("spot").info()
         self.task = SimpleNamespace(goal="retrieve", description="the box")
         self.packet = fake_packet(pose=pose)
@@ -183,7 +186,14 @@ class FakeSession:
 
     @contextmanager
     def step(self, name):
+        self.steps.append(name)
         yield
+
+    def log(self, topic, record=None, images=None):
+        self.logged.append((topic, record or {}, images or {}))
+
+    def records(self, topic):
+        return [record for kept, record, _ in self.logged if kept == topic]
 
     def finish(self, reason):
         self.finished = reason
@@ -536,31 +546,111 @@ def test_the_loop_finds_a_named_target_in_the_camera_image_the_model_named():
     assert results[0].call.args == {"camera": "front", "target": "the box"}  # The model's own words in its history.
 
 
-def test_the_openai_client_sends_the_thinking_switch_and_logs_each_turn(tmp_path, monkeypatch):
-    from foragebench.agents.model import openai_compatible
-    from foragebench.agents.model.orchestrator import Observation, OrchestratorConfig
+def test_the_openai_client_sends_the_thinking_switch_and_keeps_each_exchange_as_it_went(monkeypatch):
+    import io
 
-    sent = []
+    from PIL import Image
+
+    from foragebench.agents.model import openai_compatible
+    from foragebench.agents.model.orchestrator import Observation, OrchestratorConfig, TurnLog
+
+    sent, headers_sent = [], []
+    replies = ['{"skill": "stow", "args": {}}', '[{"point_2d": [500, 500], "label": "the box"}]']
 
     def post(url, json, headers, timeout):
         sent.append(json)
-        message = {"content": '{"skill": "stow", "args": {}}', "reasoning_content": "fold the arm"}
-        return SimpleNamespace(raise_for_status=lambda: None, json=lambda: {"choices": [{"message": message}]})
+        headers_sent.append(headers)
+        message = {"content": replies[len(sent) - 1], "reasoning_content": "fold the arm"}
+        body = {"id": f"chatcmpl-{len(sent)}", "model": "m-served", "choices": [{"message": message}], "usage": {}}
+        return SimpleNamespace(raise_for_status=lambda: None, json=lambda: body, headers={}, text="")
 
     monkeypatch.setattr(openai_compatible.requests, "post", post)
+    monkeypatch.setenv("MY_KEY", "sk-secret-123456789")
     client = openai_compatible.OpenAICompatibleOrchestrator(
-        OrchestratorConfig(model="m", thinking=False), "http://x/v1", None, log_dir=tmp_path / "agent"
+        OrchestratorConfig(model="m", thinking=False), "http://x/v1", "MY_KEY"
     )
-    client.reset("the box")
+    kept = FakeSession()
+    client.reset("the box", log=TurnLog(kept.log))
     image = np.zeros((HEIGHT, WIDTH, 3), dtype=np.uint8)
-    assert client.act(Observation(images={"front": image}, pose=None)) == SkillCall("stow")
+    image[3, 4] = (9, 8, 7)
+    assert client.act(Observation(images={"front": image}, pose=None, turn=1)) == SkillCall("stow")
+    assert client.point(image, "the box") == pytest.approx((WIDTH / 2, HEIGHT / 2))
     assert sent[0]["chat_template_kwargs"] == {"enable_thinking": False}
-    import json as json_module
+    (start,) = kept.records("model/start")
+    assert "Find and retrieve: the box" in start["system_prompt"] and len(start["sha256"]) == 64
+    (turn_topic, turn, images), (_, point, point_images) = [item for item in kept.logged if item[0] != "model/start"]
+    assert turn["turn"] == 1 and turn["thought"] == "fold the arm" and turn["images"] == ["front"]
+    assert turn["response"]["id"] == "chatcmpl-1" == turn["request_id"] and turn["model"] == "m-served"
+    picture = turn["request"]["messages"][1]["content"][2]
+    assert picture == {"type": "image_url", "image_url": {"url": "<image front>"}}  # The request, its image apart.
+    assert np.array_equal(np.asarray(Image.open(io.BytesIO(images["front"]))), image)  # The PNG as sent.
+    assert sent[0]["messages"][1]["content"][2]["image_url"]["url"].endswith(base64.b64encode(images["front"]).decode())
+    assert point["image"] == "front" and point_images == {} and point["turn"] == 1  # The turn's image, by name.
+    assert (
+        sent[1]["messages"][0]["content"][0]["image_url"]["url"]
+        == sent[0]["messages"][1]["content"][2]["image_url"]["url"]
+    )
+    assert headers_sent[0] == {"Authorization": "Bearer sk-secret-123456789"}
+    assert "sk-secret" not in json.dumps([record for _, record, _ in kept.logged])  # Never the key.
 
-    start, turn = [json_module.loads(line) for line in (tmp_path / "agent" / "turns.jsonl").read_text().splitlines()]
-    assert start["kind"] == "start" and "Find and retrieve: the box" in start["system_prompt"]
-    assert turn["thought"] == "fold the arm" and turn["images"] == ["front"]
-    assert (tmp_path / "agent" / "turn_001_front.jpg").exists()
+
+def test_the_loop_keeps_what_the_harness_made_of_each_reply_and_every_error_with_its_origin():
+    import requests
+
+    class Model(ScriptedOrchestrator):
+        def act(self, observation):
+            if observation.turn == 2:
+                raise ValueError("Could not parse a skill call from 'hmm'")
+            return super().act(observation)
+
+        def point(self, image, target):
+            return None  # The model finds nothing.
+
+    session = FakeSession()
+    calls = [
+        SkillCall("navigate_to", {"camera": "front", "u": 50, "v": 40}),
+        SkillCall("look_at", {"camera": "front", "target": "a unicorn"}),
+    ]
+    run_loop(session, Model(calls))
+    results = session.records("model/result")
+    assert [r["turn"] for r in results] == [1, 2, 3, 4]
+    assert results[0]["call"] == {"name": "navigate_to", "args": {"camera": "front", "u": 50, "v": 40}}
+    assert results[0]["sent"]["args"]["camera"] == "front" and results[0]["status"] == "succeeded"
+    assert results[1]["call"] is None and results[1]["status"] == "refused"  # The unparseable reply.
+    assert results[2]["sent"] is None and "could not find 'a unicorn'" in results[2]["reason"]
+    errors = session.records("model/error")
+    assert [(e["turn"], e["origin"], e["type"]) for e in errors] == [
+        (2, "model", "ValueError"),
+        (3, "model", "PointingError"),
+    ]
+    assert session.steps == ["turn 1: navigate_to", "turn 3: look_at", "turn 4: done"]  # A step per skill run.
+
+    class Down(ScriptedOrchestrator):
+        def act(self, observation):
+            requests.get("http://127.0.0.1:1", timeout=1)  # Nothing listens: the client fails.
+
+    session = FakeSession()
+    with pytest.raises(requests.ConnectionError):
+        run_loop(session, Down([]))
+    ((_, error, _),) = [item for item in session.logged if item[0] == "model/error"]
+    assert error["origin"] == "api" and error["type"] == "ConnectionError" and "Traceback" in error["traceback"]
+
+
+def test_an_error_s_origin_is_the_package_that_raised_it():
+    from foragebench.agents.model.orchestrator import origin
+
+    def raised_in(path: str) -> BaseException:
+        scope = {}
+        exec(compile("def fail():\n    raise KeyError('x')", path, "exec"), scope)
+        try:
+            scope["fail"]()
+        except KeyError as error:
+            return error
+
+    assert origin(raised_in("/x/foragebench/agents/model/skills.py")) == "harness"
+    assert origin(raised_in("/x/phygs/composite/skills.py")) == "phygs"
+    assert origin(raised_in("/x/site-packages/anthropic/_base_client.py")) == "api"
+    assert origin(raised_in("/x/numpy/core.py")) == "harness"  # None of ours or a client's.
 
 
 @pytest.mark.parametrize("turns", [0, 1, 2, 3])
@@ -607,9 +697,20 @@ def test_a_model_run_records_the_model_and_its_settings(tmp_path, monkeypatch):
     monkeypatch.setenv("FORAGEBENCH_THINKING", "0")
     monkeypatch.setenv("FORAGEBENCH_AGENT_DIR", str(tmp_path / "agent"))
     monkeypatch.setattr(vlm, "run_loop", lambda session, chosen, loop: None)
-    vlm.run(SimpleNamespace())
-    import json as json_module
-
-    record = json_module.loads((tmp_path / "agent" / "model.json").read_text())
+    session = FakeSession()
+    vlm.run(session)
+    record = json.loads((tmp_path / "agent" / "model.json").read_text())
     assert record["model"] == "Qwen/Qwen3.5-9B" and record["base_url"] == "http://localhost:8000/v1"
     assert record["pointer"] == "qwen" and record["thinking"] is False and record["max_calls"] == 40
+    assert session.records("model/setup") == [record]  # Also in the run's recording.
+    assert len(record["prompt_sha256"]) == 64 and len(record["menu_sha256"]) == 64
+
+
+def test_the_prompt_hash_changes_with_what_the_model_is_asked(monkeypatch):
+    from foragebench.agents.model import orchestrator
+
+    before = orchestrator.prompt_hashes("qwen", 8)
+    assert orchestrator.prompt_hashes("qwen", 8) == before and orchestrator.prompt_hashes("claude", 8) != before
+    monkeypatch.setattr(orchestrator, "skill_list", lambda: "- stow(): fold the arm")
+    after = orchestrator.prompt_hashes("qwen", 8)
+    assert after["prompt_sha256"] != before["prompt_sha256"] and after["menu_sha256"] != before["menu_sha256"]
