@@ -4,6 +4,11 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Added (2026-11-08)
+
+- `foragebench leaderboard` (`eval/leaderboard.py`) and its results file `leaderboard/results.json`, with the oracle and null agents on the dev set (`privileged`, five runs per episode, PhyGS 0.12.0, rules version 3). `add <suite folder>` scores a suite's runs into the file, one entry per agent (with its model and prompt) on a track and episode set: n, successes with their Wilson 95% interval, per-episode results, reached and clean rates, the runs not scored, the PhyGS and rules versions, the date and the run folder; it refuses runs from a dirty checkout or on another PhyGS than the pin, and unscored runs it cannot place in one entry. `readme` writes the README's leaderboard table from the file (`--check`: exit 1 when the table is stale), and `tests/test_leaderboard.py` fails when the README's table is not the file's. Not a benchmark version change.
+- `docs/submitting.md` (what to send, and how a result enters the results file).
+
 ### Changed (2026-11-08)
 
 - **Pinned PhyGS 0.12.0** (was 0.11.0): every episode recorded in one Rerun file (`episode.rrd`) and `phygs replay` from it, `AgentSession.log` (the agent's own records, which the model harness now uses), scenes whose furniture is articulated (`bear_loop_house` 1.2.0 and later), cuRoboV2-Fast, Nav2's point clouds on the GPU, the World's live video removed. A benchmark version change.

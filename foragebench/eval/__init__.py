@@ -4,4 +4,5 @@
 # SPDX-License-Identifier: BSD-3-Clause
 
 """Running episodes and summarizing results, behind the ``foragebench`` command: ``run.py`` (one),
-``suite.py`` (a set), :mod:`.results`, :mod:`.describe` (a run without the simulator)."""
+``suite.py`` (a set), :mod:`.results`, :mod:`.leaderboard` (the results file and the README's table),
+:mod:`.describe` (a run without the simulator)."""

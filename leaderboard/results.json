@@ -1,0 +1,88 @@
+{
+ "entries": [
+  {
+   "benchmark": "v1",
+   "set": "dev",
+   "track": "privileged",
+   "agent": "oracle",
+   "model": null,
+   "prompt_sha256": null,
+   "n": 15,
+   "successes": 15,
+   "success_rate": 1.0,
+   "success_ci95": [
+    0.7961,
+    1.0
+   ],
+   "reached_rate": 1.0,
+   "clean_successes": 5,
+   "clean_rate": 0.3333,
+   "skill_execution_success": 0.9245,
+   "mean_sim_seconds": 64.9,
+   "episodes": {
+    "grid_drawer": {
+     "runs": 5,
+     "successes": 5,
+     "success_rate": 1.0
+    },
+    "grid_table": {
+     "runs": 5,
+     "successes": 5,
+     "success_rate": 1.0
+    },
+    "house_drawer": {
+     "runs": 5,
+     "successes": 5,
+     "success_rate": 1.0
+    }
+   },
+   "not_scored": [],
+   "phygs_version": "0.12.0",
+   "rules_version": 3,
+   "date": "2026-11-08",
+   "runs": "output_check/20261108-1539_readme_check/dev_oracle"
+  },
+  {
+   "benchmark": "v1",
+   "set": "dev",
+   "track": "privileged",
+   "agent": "null",
+   "model": null,
+   "prompt_sha256": null,
+   "n": 15,
+   "successes": 0,
+   "success_rate": 0.0,
+   "success_ci95": [
+    0.0,
+    0.2039
+   ],
+   "reached_rate": 0.0,
+   "clean_successes": 0,
+   "clean_rate": 0.0,
+   "skill_execution_success": null,
+   "mean_sim_seconds": 1.0,
+   "episodes": {
+    "grid_drawer": {
+     "runs": 5,
+     "successes": 0,
+     "success_rate": 0.0
+    },
+    "grid_table": {
+     "runs": 5,
+     "successes": 0,
+     "success_rate": 0.0
+    },
+    "house_drawer": {
+     "runs": 5,
+     "successes": 0,
+     "success_rate": 0.0
+    }
+   },
+   "not_scored": [],
+   "phygs_version": "0.12.0",
+   "rules_version": 3,
+   "date": "2026-11-08",
+   "runs": "output_check/20261108-1539_readme_check/dev_null"
+  }
+ ]
+}

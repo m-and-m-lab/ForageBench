@@ -8,6 +8,7 @@ Run episodes and summarize results.
 | `foragebench run --episode dev/grid_table --track privileged --agent oracle --output DIR` | `run.py` | One episode in one simulator process; writes `DIR/result.json` beside PhyGS's `report.json` and its recording `episode.rrd`. |
 | `foragebench suite --set dev --track privileged --agent oracle --repeats 5 --output DIR` | `suite.py` | Every episode of a set, `repeats` seeds each, one process per episode (`--fresh`: one per run); `DIR/summary.json` and a table. |
 | `foragebench results DIR` | `results.py` | The numbers below from the `result.json` files under a folder; writes `DIR/summary.json`. |
+| `foragebench leaderboard add DIR` · `foragebench leaderboard readme` | `leaderboard.py` | Scores a suite's folder into `leaderboard/results.json` (refuses dirty runs, another PhyGS than the pin, and unscored runs it cannot place in one entry); writes the README's leaderboard table from it (`--check`: exit 1 if stale). [docs/submitting.md](../../docs/submitting.md). |
 
 All run from the Isaac Lab root with `isaaclab -p -m foragebench <command>`.
 

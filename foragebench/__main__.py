@@ -9,6 +9,7 @@
     foragebench run --episode dev/grid_table --track privileged --agent oracle --output <folder>
     foragebench suite --set dev --track privileged --agent oracle --repeats 5 --output <folder>
     foragebench results <folder>                     # The table and summary.json of finished runs.
+    foragebench leaderboard add <folder> | readme    # The results file and the README's table from it.
     foragebench scenes list | fetch                  # The scene releases the episodes need.
     foragebench version                              # ForageBench, and PhyGS pinned and installed.
 
@@ -27,6 +28,7 @@ SCRIPTS = {"run": "foragebench.eval.run", "suite": "foragebench.eval.suite"}
 MAINS = {
     "describe": "foragebench.eval.describe",
     "results": "foragebench.eval.results",
+    "leaderboard": "foragebench.eval.leaderboard",
     "scenes": "foragebench.scenes",
 }
 

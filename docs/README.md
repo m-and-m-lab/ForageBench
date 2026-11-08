@@ -4,6 +4,7 @@
 | --- | --- |
 | Install and run | [README.md](../README.md) · [install.md](install.md) |
 | What the benchmark claims and does not claim | [task_card.md](task_card.md) |
+| The leaderboard, its results file, and how to submit a result | [submitting.md](submitting.md) |
 | What changed | [CHANGELOG.md](../CHANGELOG.md) |
 | Rules for contributors and coding agents (submodule discipline) | [AGENTS.md](../AGENTS.md) |
 | The benchmark's parts: the task and its evaluator, the episodes, the tracks, the scenes, the `foragebench` command and the metrics | [tasks/](../foragebench/tasks/README.md) · [episodes/](../foragebench/episodes/README.md) · [tracks/](../foragebench/tracks/README.md) · [scenes/](../foragebench/scenes/README.md) · [eval/](../foragebench/eval/README.md) |
