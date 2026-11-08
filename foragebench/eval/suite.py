@@ -10,7 +10,8 @@
 
 Each episode is one ``foragebench run`` process with its repeats (``--repeats``; PhyGS resets the
 scene between them, so only the first pays Isaac Sim's start-up); ``--fresh`` starts a process per
-run instead. Folders and logs land under ``--output``. The
+run instead. Folders and logs land under ``--output``. With ``--record``, each run is rendered again
+from its recording afterwards (``phygs replay``: ``replay/replay.mp4`` beside its ``episode.rrd``). The
 summary (``summary.json`` and a table) comes from :mod:`foragebench.eval.results`. A run that breaks
 or fails its start check is listed apart from the rates and does not stop the suite.
 """
@@ -41,7 +42,7 @@ def main() -> int:
     parser.add_argument("--only", nargs="*", default=None, help="Episode ids of the set to run")
     parser.add_argument("--benchmark", type=Path, default=ROOT / "configs" / "benchmark_v1.yaml")
     parser.add_argument("--output", type=Path, required=True, help="A fresh folder for the suite")
-    parser.add_argument("--record", action="store_true")
+    parser.add_argument("--record", action="store_true", help="Each run's video, rendered from its recording")
     parser.add_argument(
         "--kit_args", default="", help='Passed to every run, e.g. "--/renderer/activeGpu=1 --/physics/cudaDevice=1"'
     )
@@ -81,12 +82,17 @@ def main() -> int:
             str(args.benchmark),
             "--output",
             str(folder),
-            *(["--record"] if args.record else []),
             *([f"--kit_args={args.kit_args}"] if args.kit_args else []),
         ]
         print(f"== {label}", flush=True)
         with (args.output / f"{label}.log").open("w") as log:
             code = subprocess.run(command, stdout=log, stderr=subprocess.STDOUT).returncode
+        if args.record:  # Each run's video, from its recording.
+            with (args.output / f"{label}.replay.log").open("w") as log:
+                for recording in sorted(folder.rglob("episode.rrd")):
+                    replay = [sys.executable, "-m", "phygs", "replay", str(recording.parent)]
+                    replay += [f"--kit_args={args.kit_args}"] if args.kit_args else []
+                    subprocess.run(replay, stdout=log, stderr=subprocess.STDOUT)
         found = sorted(folder.rglob("result.json"))
         statuses = [json.loads(path.read_text()).get("status", "completed") for path in found] or ["error"]
         print(f"   {', '.join(statuses)} (exit {code})", flush=True)

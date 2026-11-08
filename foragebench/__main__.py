@@ -6,7 +6,7 @@
 """The ``foragebench`` command: one name for the benchmark's entry points.
 
     foragebench describe --episode dev/grid_table --track privileged --agent oracle   # No simulator.
-    foragebench run --episode dev/grid_table --track privileged --agent oracle --output <folder> [--record]
+    foragebench run --episode dev/grid_table --track privileged --agent oracle --output <folder>
     foragebench suite --set dev --track privileged --agent oracle --repeats 5 --output <folder>
     foragebench results <folder>                     # The table and summary.json of finished runs.
     foragebench scenes list | fetch                  # The scene releases the episodes need.

@@ -53,7 +53,6 @@ parser.add_argument("--benchmark", type=Path, default=ROOT / "configs" / "benchm
 parser.add_argument("--seed", type=int, default=None, help="Override the episode's seed")
 parser.add_argument("--repeats", type=int, default=1, help="Episodes in this process, seeds seed..seed+N-1")
 parser.add_argument("--robot", default=None, help="Run with another robot: a PhyGS robot name or a robot.yaml")
-parser.add_argument("--record", action="store_true", help="Write a third-person video")
 AppLauncher.add_app_launcher_args(parser)
 parser.set_defaults(device="cpu", enable_cameras=True)
 args = parser.parse_args()
@@ -157,7 +156,6 @@ def main() -> int:
             spec.with_seed(SEEDS[0]),
             FOLDERS[0],
             clock=rules["clock"],
-            record=args.record,
             device=args.device,
             overrides=overrides,
             robot=robot,

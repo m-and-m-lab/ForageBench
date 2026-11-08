@@ -4,6 +4,10 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Removed (2026-11-08)
+
+- `run.py --record` (the live third-person video; PhyGS 0.12.0 removes it from the World). `suite.py --record` now renders each run's video after the run from its recording, with `phygs replay` (`replay/replay.mp4` beside each `episode.rrd`; needs PhyGS 0.12.0's recording). Not a benchmark version change.
+
 ### Changed (2026-11-07)
 
 - **Pinned PhyGS 0.11.0** (was 0.10.0): Isaac Lab main (Isaac Sim 6.2.0), one stowed limit (`Truth.stowed`), the composite look_at sweep, drawer strokes that end stowed, the shoulder-line handle grasp, one cuRobo planner for every gripper angle. A benchmark version change.
