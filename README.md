@@ -130,7 +130,7 @@ Written from [`leaderboard/results.json`](leaderboard/results.json); [how to sub
 
 ## 🧱 Scenes and data
 
-The grid episodes use a scene built into PhyGS. The house episode (`dev/house_drawer`) uses the house scene, release 1.1.0, from the scene dataset [`mandmlabresearch/ForageBench`](https://huggingface.co/datasets/mandmlabresearch/ForageBench) on Hugging Face: published at dataset commit `37d8744`, 535.5 MB, private for now, licence to be announced. Fetching it: [foragebench/scenes/](foragebench/scenes/README.md).
+The grid episodes use a scene built into PhyGS. The house episode (`dev/house_drawer`) uses the house scene, release 1.3.0, from the scene dataset [`mandmlabresearch/ForageBench`](https://huggingface.co/datasets/mandmlabresearch/ForageBench) on Hugging Face: published at dataset commit `bfe0bb4`, 3.7 GB, private for now, licence to be announced. Fetching it: [foragebench/scenes/](foragebench/scenes/README.md).
 
 ## 📝 Citation
 

@@ -18,7 +18,7 @@ ForageBench runs inside PhyGS's Isaac Lab container. Three steps:
 
    ```bash
    isaaclab -p -m huggingface_hub.cli.hf auth login
-   isaaclab -p -m phygs.scene.fetch fetch --repo_id mandmlabresearch/ForageBench --scene_id bear_loop_house --scene_version 1.1.0
+   isaaclab -p -m phygs.scene.fetch fetch --repo_id mandmlabresearch/ForageBench --scene_id bear_loop_house --scene_version 1.3.0
    ```
 
    Releases install under `~/.cache/phygs/scenes`; episodes find them there by id and version (`$PHYGS_SCENES`, when set, is a folder searched first).

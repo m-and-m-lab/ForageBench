@@ -13,5 +13,5 @@ sets:
       scene: grid_storage
     - id: house_drawer
       file: dev/house_drawer.yaml
-      scene: bear_loop_house@1.1.0
-      archive_sha256: 06b18741dd5de54e78e3a96c8cf0851c6ba0851960fa85ef43f35ae42b7e6184
+      scene: bear_loop_house@1.3.0
+      archive_sha256: 5d05660440b5827cb0925c2c7d489ebe0820762d20e204cb8fe571e36bfe4031

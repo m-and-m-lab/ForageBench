@@ -7,7 +7,7 @@ dataset on Hugging Face is `mandmlabresearch/ForageBench` (private for now).
 | Scene | Release | Used by | Get it |
 | --- | --- | --- | --- |
 | `grid_storage` | Built into PhyGS (`phygs/scene/builtin`) | `dev/grid_table`, `dev/grid_drawer` | nothing to do |
-| `bear_loop_house` | 1.1.0 (the storage revision; archive SHA-256 `06b18741…`) | `dev/house_drawer` | `foragebench scenes fetch` |
+| `bear_loop_house` | 1.3.0 (archive SHA-256 `5d056604…`, 3.7 GB) | `dev/house_drawer` | `foragebench scenes fetch` |
 
 ```bash
 isaaclab -p -m huggingface_hub.cli.hf auth login     # once
