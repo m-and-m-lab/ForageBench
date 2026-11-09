@@ -46,9 +46,9 @@ def main(argv: list[str] | None = None) -> int:
 
         import foragebench
 
-        rules = Path(__file__).resolve().parents[1] / "configs" / "benchmark_v1.yaml"
-        pinned = yaml.safe_load(rules.read_text())["phygs_version"]
-        print(f"foragebench {foragebench.__version__}; PhyGS pinned {pinned}, installed {foragebench.phygs_version()}")
+        rules = yaml.safe_load((Path(__file__).resolve().parents[1] / "configs" / "benchmark_v1.yaml").read_text())
+        pin = foragebench.pin_text(rules, foragebench.phygs_version(), foragebench.phygs_code())
+        print(f"foragebench {foragebench.__version__}; PhyGS {pin}")
         return 0
     if command in SCRIPTS:
         sys.argv = [f"foragebench {command}", *rest]

@@ -208,3 +208,49 @@ def test_the_summary_counts_finishes_the_evaluator_did_not_confirm(tmp_path):
     )
     group = summarize(tmp_path)["groups"][0]
     assert (group["finishes"], group["false_finishes"]) == (2, 1)
+
+
+def test_a_run_is_unpinned_for_the_reasons_it_recorded_a_dirty_checkout_or_another_commit():
+    """A run writes why it is unpinned (``provenance.unpinned``); a result from before that key is
+    unpinned for a dirty checkout, as before, and, given rules with ``phygs_commit``, for a PhyGS commit
+    other than the pinned one (a later commit still says 0.12.0)."""
+    from foragebench.eval.results import pin_reasons, unpinned
+
+    tag, later = "67fddf15b94f7b99e82be2257b89d83fefdcb4ac", "47e3edc" + "0" * 33
+
+    def ran(commit=tag, phygs_dirty=False, foragebench_dirty=False, **more) -> dict:
+        code = {"commit": commit, "dirty": phygs_dirty}
+        mine = {"commit": "f" * 40, "dirty": foragebench_dirty}
+        return run(provenance=dict(phygs_version="0.12.0", code=code, foragebench=mine, **more))
+
+    why = "PhyGS commit 47e3edc is not v0.12.0 at 67fddf1"
+    assert pin_reasons(ran(later, unpinned=[why])) == [why] and unpinned(ran(later, unpinned=[why]))
+    assert pin_reasons(ran(unpinned=[])) == [] and not unpinned(ran(unpinned=[]))  # A run on the release.
+    assert pin_reasons(ran()) == [] and not unpinned(ran())  # An older result from clean checkouts.
+    assert pin_reasons(ran(phygs_dirty=True)) == ["a dirty checkout of PhyGS, with uncommitted changes"]
+    assert unpinned(ran(phygs_dirty=True))
+    assert pin_reasons(ran(foragebench_dirty=True)) == ["a dirty checkout of ForageBench, with uncommitted changes"]
+    assert unpinned(ran(foragebench_dirty=True))
+    rules = {"phygs_version": "0.12.0", "phygs_commit": tag}
+    assert pin_reasons(ran(), rules) == []
+    with pytest.raises(ValueError, match="phygs_commit"):  # Rules without the pinned commit are an error.
+        pin_reasons(ran(later), {"phygs_version": "0.12.0"})
+    (commit,) = pin_reasons(ran(later), rules)
+    assert all(text in commit for text in ("47e3edc", "v0.12.0", "67fddf1")), commit
+    (unknown,) = pin_reasons(ran(None), rules)
+    assert all(text in unknown for text in ("unknown", "v0.12.0", "67fddf1")), unknown
+
+
+def test_given_the_rules_the_summary_counts_an_older_run_at_another_commit_as_unpinned(tmp_path):
+    """An older result (no ``provenance.unpinned``) from clean checkouts at a later PhyGS commit: the
+    summary counts it unpinned only when it is given the rules, as ``foragebench results`` does."""
+    tag, later = "67fddf15b94f7b99e82be2257b89d83fefdcb4ac", "47e3edc" + "0" * 33
+    clean = {"commit": "f" * 40, "dirty": False}
+    older = run(
+        status="completed",
+        provenance=dict(phygs_version="0.12.0", code={"commit": later, "dirty": False}, foragebench=clean),
+    )
+    write_runs(tmp_path, {"a": older})
+    rules = {"phygs_version": "0.12.0", "phygs_commit": tag}
+    assert summarize(tmp_path)["groups"][0]["unpinned"] == 0
+    assert summarize(tmp_path, 1.0, rules)["groups"][0]["unpinned"] == 1

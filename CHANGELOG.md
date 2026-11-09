@@ -4,6 +4,23 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Added (2026-11-09)
+
+- `phygs_commit` in `configs/benchmark_v1.yaml`, beside `phygs_version`: the pinned PhyGS release's tag commit (0.12.0: `67fddf1`). `tests/test_pin.py` checks that it is the `third_party/phygs` commit in the index, so a pin bump changes the submodule, `phygs_version` and `phygs_commit` together. The pinned release is the same; not a benchmark version change.
+- `foragebench.phygs_code()` (the imported PhyGS checkout's commit and whether it has uncommitted changes), `foragebench.commit_problem(commit, rules)` and `foragebench.dirty_problem(project)` (the reason texts), `foragebench.pin_problems(rules, version, code)` (why an installed PhyGS is not the pinned release; empty when it is), `foragebench.pin_text(rules, version, code)` (the pin in one line), and `results.pin_reasons(result, rules=None)` (why a run is not publishable).
+- `provenance.unpinned` in `result.json`: the reasons the run's PhyGS is not the pinned release, empty when it is.
+
+### Changed (2026-11-09)
+
+- **A run is pinned only on the pinned PhyGS release: its version, its tag's commit, and no uncommitted changes.** Before, only `phygs.__version__` was compared, so a later PhyGS commit that still said 0.12.0 passed as pinned. A run on another PhyGS (another version, a development version, another commit, an install outside a git checkout, a dirty checkout) is no longer refused: it goes ahead, prints `foragebench: an unpinned run, its results are not publishable: <reasons>` at the start, and records the reasons in `provenance.unpinned`. Not a benchmark version change: the rules file's hash (`provenance.benchmark_rules`) changes with the new key, but what is pinned and what is scored do not, so results before and after pool.
+- `results.unpinned(result, rules=None)` is `bool(pin_reasons(result, rules))`: the reasons the run recorded (from the commit and dirty flag PhyGS records for the run), a dirty PhyGS or ForageBench checkout and, given the rules, a PhyGS commit other than the pinned one, which also catches results written before `provenance.unpinned`. `results.summarize(folder, cost, rules=None)` passes the rules on, and `foragebench results`, `suite` and `leaderboard add` give them. The results table says "<n> of these runs are unpinned: do not publish them" (was "came from a dirty checkout").
+- `foragebench leaderboard add` refuses a folder with any unpinned run and names the reasons (e.g. "PhyGS commit 47e3edc is not v0.12.0 at 67fddf1").
+- `foragebench version` and `foragebench describe` print the pinned and the installed PhyGS, each at its commit, then `pinned` or `unpinned (<reasons>)`. `describe` exits 1 only for a missing scene (it also did for another PhyGS version, marked `REFUSED`).
+
+### Removed (2026-11-09)
+
+- `foragebench.check_phygs_version()`, which refused to run against another PhyGS version. `foragebench.pin_problems(rules, foragebench.phygs_version(), foragebench.phygs_code())` says why the installed PhyGS is not the pinned release (empty when it is); a run on it is marked unpinned instead of refused.
+
 ### Added (2026-11-08)
 
 - `foragebench leaderboard` (`eval/leaderboard.py`) and its results file `leaderboard/results.json`, with the oracle and null agents on the dev set (`privileged`, five runs per episode, PhyGS 0.12.0, rules version 3). `add <suite folder>` scores a suite's runs into the file, one entry per agent (with its model and prompt) on a track and episode set: n, successes with their Wilson 95% interval, per-episode results, reached and clean rates, the runs not scored, the PhyGS and rules versions, the date and the run folder; it refuses runs from a dirty checkout or on another PhyGS than the pin, and unscored runs it cannot place in one entry. `readme` writes the README's leaderboard table from the file (`--check`: exit 1 when the table is stale), and `tests/test_leaderboard.py` fails when the README's table is not the file's. Not a benchmark version change.

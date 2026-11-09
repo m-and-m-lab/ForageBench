@@ -11,9 +11,10 @@
 ``--episode`` is an id of the manifest's sets (``dev/grid_table``) or the path of an episode file;
 ``--track`` a name in ``foragebench/tracks`` or a path; ``--agent`` a module of
 ``foragebench.agents`` (``null``, ``template``, ``oracle``) or ``path/to/file.py:function``.
-The benchmark rules (``configs/benchmark_v1.yaml``) pin the PhyGS version, the backends and the
-end-of-episode settings; the result records them with the episode's scene release and every hash
-PhyGS puts in the report's provenance. ``result.json`` is written in every case: its ``status`` is
+The benchmark rules (``configs/benchmark_v1.yaml``) pin the PhyGS release (version and commit), the
+backends and the end-of-episode settings; the result records them with the episode's scene release
+and every hash PhyGS puts in the report's provenance. A run on another PhyGS goes ahead and says why
+it is unpinned (``provenance.unpinned``). ``result.json`` is written in every case: its ``status`` is
 ``completed`` (scored), ``setup_error`` (PhyGS's start check failed; the agent never ran) or ``error``
 (the simulator or the World broke). The exit code is 1 only for ``error``. It names the run's
 ``run_id`` (its recording, ``episode.rrd``) and, for a model agent, the model's totals read from that
@@ -61,7 +62,9 @@ parser.set_defaults(device="cpu", enable_cameras=True)
 args = parser.parse_args()
 
 rules = yaml.safe_load(args.benchmark.read_text())
-foragebench.check_phygs_version(rules["phygs_version"])
+pin = foragebench.pin_problems(rules, foragebench.phygs_version(), foragebench.phygs_code())
+if pin:  # Another PhyGS runs, marked unpinned in result.json (provenance.unpinned).
+    print(f"foragebench: an unpinned run, its results are not publishable: {'; '.join(pin)}.", flush=True)
 episode = load_episode(args.episode, track=args.track, manifest=ROOT / rules["manifest"])
 spec = EpisodeSpec.from_dict(episode.spec, base=episode.path.parent)  # Validated before Isaac Sim starts.
 if args.seed is not None:
@@ -230,6 +233,8 @@ def write_result(folder: Path, seed: int, report: dict, *, episode_in_process: i
         provenance=dict(
             **report["provenance"],
             phygs_version=foragebench.phygs_version(),
+            # Why PhyGS is not the pinned release, from the commit and dirty flag it recorded; empty when it is.
+            unpinned=foragebench.pin_problems(rules, foragebench.phygs_version(), report["provenance"]["code"]),
             foragebench=code_version(ROOT),
             benchmark_rules=file_sha256(args.benchmark),
             track=episode.track_sha256,

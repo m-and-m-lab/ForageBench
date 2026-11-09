@@ -3,10 +3,12 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""Episodes, tracks and the manifest load into PhyGS specs; the benchmark rules pin a PhyGS version."""
+"""Episodes, tracks and the manifest load into PhyGS specs; the benchmark rules pin a PhyGS version and
+commit, and a run is pinned only on that release."""
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 import pytest
@@ -73,7 +75,49 @@ def test_nothing_hidden_reaches_the_agent(key):
         assert all(target not in str(value) for value in public.values()), f"{key}: the public task names {target!r}"
 
 
-def test_the_rules_pin_the_installed_phygs_version():
-    foragebench.check_phygs_version(RULES["phygs_version"])
-    with pytest.raises(RuntimeError, match="pins PhyGS 9.9.9"):
-        foragebench.check_phygs_version("9.9.9")
+TAG = "67fddf15b94f7b99e82be2257b89d83fefdcb4ac"  # PhyGS v0.12.0's commit.
+LATER = "47e3edc" + "0" * 33  # A later PhyGS commit whose __version__ still says 0.12.0.
+PIN = {"phygs_version": "0.12.0", "phygs_commit": TAG}
+
+
+def test_the_rules_pin_a_phygs_version_and_its_commit():
+    """A run is pinned when PhyGS's version and commit are the rules' (a later commit keeps the
+    version string). A run on another PhyGS is marked unpinned, never refused: the refusal is gone."""
+    version, commit = RULES["phygs_version"], RULES.get("phygs_commit")
+    assert isinstance(version, str), f"phygs_version {version!r}: quote it, a YAML number is not a version"
+    assert isinstance(commit, str) and re.fullmatch(r"[0-9a-f]{40}", commit), f"phygs_commit {commit!r}"
+    assert foragebench.pin_problems(RULES, version, {"commit": commit, "dirty": False}) == []
+    assert not hasattr(foragebench, "check_phygs_version")
+
+
+def test_a_run_is_pinned_only_at_the_pinned_version_and_commit_of_a_clean_checkout():
+    """One plain reason per problem, in order: the version, the commit (unknown outside a git checkout,
+    never a crash), uncommitted changes. ``code`` is PhyGS's ``code_version``: commit and dirty."""
+    assert foragebench.pin_problems(PIN, "0.12.0", {"commit": TAG, "dirty": False}) == []
+    assert foragebench.pin_problems(PIN, "0.12.0", {"commit": TAG, "dirty": None}) == []  # Not known dirty.
+    (later,) = foragebench.pin_problems(PIN, "0.12.0", {"commit": LATER, "dirty": False})
+    assert all(text in later for text in ("47e3edc", "v0.12.0", "67fddf1")), later
+    version, commit = foragebench.pin_problems(PIN, "0.13.0.dev0", {"commit": LATER, "dirty": False})
+    assert "0.13.0.dev0" in version and "0.12.0" in version, version
+    assert all(text in commit for text in ("47e3edc", "v0.12.0", "67fddf1")), commit
+    (unknown,) = foragebench.pin_problems(PIN, "0.12.0", {"commit": None, "dirty": None})
+    assert "unknown" in unknown, unknown
+    (dirty,) = foragebench.pin_problems(PIN, "0.12.0", {"commit": TAG, "dirty": True})
+    assert "uncommitted" in dirty, dirty
+    first, second, third = foragebench.pin_problems(PIN, "0.13.0.dev0", {"commit": LATER, "dirty": True})
+    assert "0.13.0.dev0" in first and "47e3edc" in second and "uncommitted" in third, (first, second, third)
+
+
+def test_the_pin_line_names_both_pins_and_says_pinned_or_why_not():
+    """``foragebench version`` and ``describe`` print it: the pinned and the installed version, each at its
+    short commit, then ``pinned`` or ``unpinned (<the reasons>)``."""
+    pinned = foragebench.pin_text(PIN, "0.12.0", {"commit": TAG, "dirty": False})
+    assert pinned.startswith("pinned 0.12.0 at 67fddf1") and "installed 0.12.0 at 67fddf1" in pinned, pinned
+    assert pinned.endswith(": pinned"), pinned
+    code = {"commit": LATER, "dirty": False}
+    later = foragebench.pin_text(PIN, "0.13.0.dev0", code)
+    assert later.startswith("pinned 0.12.0 at 67fddf1") and "installed 0.13.0.dev0 at 47e3edc" in later, later
+    assert ": unpinned (" in later and not later.endswith(": pinned"), later
+    assert all(reason in later for reason in foragebench.pin_problems(PIN, "0.13.0.dev0", code)), later
+    unknown = foragebench.pin_text(PIN, "0.12.0", {"commit": None, "dirty": None})  # No git checkout: no crash.
+    assert ": unpinned (" in unknown and "unknown" in unknown, unknown

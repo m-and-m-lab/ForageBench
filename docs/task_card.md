@@ -22,4 +22,4 @@
 
 **What is not claimed.** That success on the dev episodes transfers to unseen houses; that the oracle's success rate is attainable by a method without privileged information; that the rendered appearance matches the physical validation; anything about the real robot.
 
-**Provenance in every result.** PhyGS version and commit, ForageBench commit, dirty flags, the rules file, track file, episode file and thresholds hashes, the scene USD's hash and release, the robot USD and policy hashes, the effective backends.
+**Provenance in every result.** PhyGS version and commit and, when that is not the pinned release, why (`unpinned`), ForageBench commit, dirty flags, the rules file, track file, episode file and thresholds hashes, the scene USD's hash and release, the robot USD and policy hashes, the effective backends.

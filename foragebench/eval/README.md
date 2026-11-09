@@ -4,11 +4,11 @@ Run episodes and summarize results.
 
 | Command | Module | Does |
 | --- | --- | --- |
-| `foragebench describe --episode dev/grid_table --track privileged --agent oracle` | `describe.py` | What the run would do, without the simulator; exit 1 if it would be refused (PhyGS version, missing scene). |
+| `foragebench describe --episode dev/grid_table --track privileged --agent oracle` | `describe.py` | What the run would do, without the simulator; exit 1 if the scene is missing. Its PhyGS row says whether the installed PhyGS is the pinned release, and why not. |
 | `foragebench run --episode dev/grid_table --track privileged --agent oracle --output DIR` | `run.py` | One episode in one simulator process; writes `DIR/result.json` beside PhyGS's `report.json` and its recording `episode.rrd`. |
 | `foragebench suite --set dev --track privileged --agent oracle --repeats 5 --output DIR` | `suite.py` | Every episode of a set, `repeats` seeds each, one process per episode (`--fresh`: one per run); `DIR/summary.json` and a table. |
 | `foragebench results DIR` | `results.py` | The numbers below from the `result.json` files under a folder; writes `DIR/summary.json`. |
-| `foragebench leaderboard add DIR` · `foragebench leaderboard readme` | `leaderboard.py` | Scores a suite's folder into `leaderboard/results.json` (refuses dirty runs, another PhyGS than the pin, and unscored runs it cannot place in one entry); writes the README's leaderboard table from it (`--check`: exit 1 if stale). [docs/submitting.md](../../docs/submitting.md). |
+| `foragebench leaderboard add DIR` · `foragebench leaderboard readme` | `leaderboard.py` | Scores a suite's folder into `leaderboard/results.json` (refuses unpinned runs, naming why, and unscored runs it cannot place in one entry); writes the README's leaderboard table from it (`--check`: exit 1 if stale). [docs/submitting.md](../../docs/submitting.md). |
 
 All run from the Isaac Lab root with `isaaclab -p -m foragebench <command>`.
 
@@ -24,8 +24,9 @@ evaluator's, from ground truth sampled during the run), `manipulations`, `skill_
 `skill_successes`, `sim_seconds`, `wall_seconds`, `usage` (calls per client, privileged reads),
 `agent_setup` (a model agent's `agent/model.json`: model, server, settings, `prompt_sha256` and
 `menu_sha256`), `model` (a model agent's totals, read from the recording's `/agent/log/model/*`:
-turns, pointing queries, errors by origin, tokens, seconds, retries), `scene` (id, version, USD hash), and `provenance` (PhyGS version and commit, ForageBench commit,
-dirty flags, hashes of the rules, track, episode file, thresholds, robot USD and policy).
+turns, pointing queries, errors by origin, tokens, seconds, retries), `scene` (id, version, USD hash), and `provenance` (PhyGS version and commit, `unpinned`:
+why PhyGS is not the pinned release, empty when it is; ForageBench commit, dirty flags, hashes of the
+rules, track, episode file, thresholds, robot USD and policy).
 
 ## Metrics
 
@@ -38,7 +39,7 @@ dirty flags, hashes of the rules, track, episode file, thresholds, robot USD and
 | SPL | Batra et al. 2020: mean of `S_i · l_i / max(p_i, l_i)` over episodes with a stated optimal path `l_i`; `null` otherwise |
 | SPL-M | SPL with each manipulation charged `spl_m_cost_per_manipulation_m` (1 m) on both sides |
 | skill execution success | skill calls that ended `succeeded`, pooled over runs |
-| unpinned | runs from a dirty PhyGS or ForageBench checkout; do not publish them |
+| unpinned | runs not on the pinned PhyGS release (another version or commit, or a dirty checkout: `provenance.unpinned`) or from a dirty ForageBench checkout; do not publish them |
 
 Only `completed` runs are in the rates. `setup_error` and `error` runs, and run folders without a
 `result.json`, are listed under `not_scored` with their reasons; a benchmark result reports them.

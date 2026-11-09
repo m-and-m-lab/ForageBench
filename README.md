@@ -40,7 +40,7 @@ ForageBench asks a mobile manipulator in a house to find an object it was told a
 
 | | Tested |
 | --- | --- |
-| PhyGS | 0.12.0, pinned as the submodule `third_party/phygs` |
+| PhyGS | 0.12.0 at commit 67fddf1, pinned as the submodule `third_party/phygs`; runs on another PhyGS are unpinned ([the pin](docs/install.md#the-phygs-pin)) |
 | Container | PhyGS's: Isaac Sim 6.2.0, Isaac Lab 3.0.0, Python 3.12, ROS 2 Jazzy ([PhyGS requirements](https://github.com/m-and-m-lab/PhyGS/blob/develop/README.md#-requirements)) |
 | GPU | NVIDIA RTX with RT cores; tested on a GeForce RTX 4090, 24 GB |
 
@@ -70,13 +70,15 @@ isaaclab -p -m foragebench run --episode dev/grid_table --track privileged --age
 Expected output (paths shortened; `describe` prints more lines):
 
 ```
-PhyGS      pinned 0.12.0, installed 0.12.0
+PhyGS      pinned 0.12.0 at 67fddf1, installed 0.12.0 at 67fddf1: pinned
 scene      grid_storage, present: .../phygs/scene/builtin/grid_storage/scene.usda
 task       retrieve: 'the small green box'
 rules      version 3
 ...
 dev/grid_table [privileged] null seed 0 completed: failure (not held), clean=True, ended by finish after 1.0 s; scripts/ForageBench/output_check/<YYYYMMDD-HHMM>_null/result.json
 ```
+
+A `PhyGS` row ending in `unpinned (...)` says why the installed PhyGS is not the pinned release: runs still go ahead, but their results are not publishable ([the pin](docs/install.md#the-phygs-pin)).
 
 ## 🚀 Quick start
 

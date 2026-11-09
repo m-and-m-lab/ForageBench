@@ -3,7 +3,8 @@
 #
 # SPDX-License-Identifier: BSD-3-Clause
 
-"""The PhyGS pin: ``third_party/phygs`` is the tagged release ``configs/benchmark_v1.yaml`` names.
+"""The PhyGS pin: ``third_party/phygs`` is the tagged release ``configs/benchmark_v1.yaml`` names, by
+version and by commit.
 
 Needs git, PyYAML and pytest only, so CI runs it without Isaac Sim (``.github/workflows/pin.yml``).
 The commit checked is the one the index records, so the test fails before a ForageBench commit that
@@ -29,6 +30,10 @@ def git(*args: str, cwd: Path = ROOT, check: bool = True) -> subprocess.Complete
 
 def pinned_version() -> str:
     return str(yaml.safe_load((ROOT / "configs" / "benchmark_v1.yaml").read_text())["phygs_version"])
+
+
+def pinned_commit() -> str | None:
+    return yaml.safe_load((ROOT / "configs" / "benchmark_v1.yaml").read_text()).get("phygs_commit")
 
 
 def recorded_commit() -> str:
@@ -63,6 +68,17 @@ def test_the_submodule_is_the_tagged_release_the_rules_pin():
     assert commit == tagged, (
         f"configs/benchmark_v1.yaml pins PhyGS {version} (v{version} = {tagged[:7]}) but {SUBMODULE} records"
         f" {commit[:7]}: check out v{version} in {SUBMODULE} and stage it."
+    )
+
+
+def test_the_rules_pin_the_commit_the_index_records():
+    """``phygs_commit`` is the submodule's commit, so a pin bump changes the submodule, ``phygs_version``
+    and ``phygs_commit`` together. A run is pinned only at this commit; a stale value marks every
+    run on the real release unpinned, or passes a run on another commit."""
+    pinned, commit = pinned_commit(), recorded_commit()
+    assert pinned == commit, (
+        f"configs/benchmark_v1.yaml pins PhyGS commit {pinned!r} but {SUBMODULE} records {commit[:7]}:"
+        f" set phygs_commit to {commit} with phygs_version."
     )
 
 

@@ -28,7 +28,7 @@ PHYGS_PUBLIC = {
     "phygs.scene.registry",  # Scenes by id.
     "phygs.robots.description",
     "phygs.recording.reader",  # A run's recording read back (the model's totals from its records).
-    "phygs",  # The bare package, for its version only.
+    "phygs",  # The bare package, for its version and the checkout it comes from.
 }
 AGENT_ALLOWED = (
     "phygs.session",
@@ -54,7 +54,7 @@ def imported(path: Path) -> set[str]:
 
 
 def ok(name: str, heads: tuple[str, ...]) -> bool:
-    if name == "phygs":  # The bare package may be imported for its version only; its modules are the list's.
+    if name == "phygs":  # The bare package, for its version and its checkout's path; its modules are the list's.
         return "phygs" in heads
     return name.split(".")[0] in sys.stdlib_module_names or any(name == h or name.startswith(h + ".") for h in heads)
 

@@ -3,15 +3,33 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 
 from foragebench.eval import leaderboard
 
-RULES = {"phygs_version": "0.12.0", "spl_m_cost_per_manipulation_m": 1.0}
+TAG = "67fddf15b94f7b99e82be2257b89d83fefdcb4ac"  # PhyGS v0.12.0's commit.
+RULES = {"phygs_version": "0.12.0", "phygs_commit": TAG, "spl_m_cost_per_manipulation_m": 1.0}
+LATER = "47e3edc" + "0" * 33  # A later PhyGS commit whose __version__ still says 0.12.0.
 
 
-def result(episode: str, outcome: str = "success", dirty: bool = False, phygs: str = "0.12.0", **over) -> dict:
+def result(
+    episode: str,
+    outcome: str = "success",
+    dirty: bool = False,
+    phygs: str = "0.12.0",
+    commit: str | None = TAG,
+    unpinned: list[str] | None = None,
+    **over,
+) -> dict:
+    provenance = {
+        "phygs_version": phygs,
+        "code": {"commit": commit, "dirty": dirty},
+        "foragebench": {"dirty": False},
+    }
+    if unpinned is not None:  # Runs write why they are unpinned; older results have no such key.
+        provenance["unpinned"] = unpinned
     return (
         dict(
             benchmark="v1",
@@ -30,7 +48,7 @@ def result(episode: str, outcome: str = "success", dirty: bool = False, phygs: s
             skill_successes=2,
             sim_seconds=60.0,
             rules={"version": 3},
-            provenance={"phygs_version": phygs, "code": {"dirty": dirty}, "foragebench": {"dirty": False}},
+            provenance=provenance,
         )
         | over
     )
@@ -61,6 +79,31 @@ def test_runs_from_a_dirty_checkout_or_another_phygs_are_refused(tmp_path):
     suite(tmp_path / "other", {"a": result("grid_table", phygs="0.11.0")})
     with pytest.raises(ValueError, match="the rules pin 0.12.0"):
         leaderboard.entries(tmp_path / "other", RULES, date="2026-11-08")
+
+
+def test_runs_marked_unpinned_are_refused_with_their_reasons(tmp_path):
+    """A run on a PhyGS that is not the pinned release says why (``provenance.unpinned``); ``add``
+    refuses its group and says why, so a non-release PhyGS never reaches the leaderboard."""
+    why = "PhyGS commit 47e3edc is not v0.12.0 at 67fddf1"
+    suite(tmp_path, {"a": result("grid_table"), "b": result("grid_table", commit=LATER, unpinned=[why])})
+    with pytest.raises(ValueError, match=re.escape(why)):
+        leaderboard.entries(tmp_path, RULES, date="2026-11-08")
+
+
+def test_with_the_pinned_commit_only_runs_at_that_commit_are_accepted(tmp_path):
+    """A later PhyGS commit still says 0.12.0, and a result from before ``provenance.unpinned`` does
+    not say it is unpinned; the rules' ``phygs_commit`` catches it, naming the commit and the tag."""
+    rules = RULES  # It carries the pinned commit.
+    suite(tmp_path / "tag", {"a": result("grid_table", unpinned=[]), "b": result("grid_table")})
+    (entry,) = leaderboard.entries(tmp_path / "tag", rules, date="2026-11-08")
+    assert entry["n"] == 2
+    suite(tmp_path / "later", {"a": result("grid_table"), "b": result("grid_table", commit=LATER)})
+    with pytest.raises(ValueError) as refused:
+        leaderboard.entries(tmp_path / "later", rules, date="2026-11-08")
+    assert all(text in str(refused.value) for text in ("47e3edc", "v0.12.0", "67fddf1")), refused.value
+    suite(tmp_path / "nocommit", {"a": result("grid_table", commit=None)})  # PhyGS outside a git checkout.
+    with pytest.raises(ValueError, match="unknown"):
+        leaderboard.entries(tmp_path / "nocommit", rules, date="2026-11-08")
 
 
 def test_runs_that_could_not_be_scored_are_kept_and_shown(tmp_path):

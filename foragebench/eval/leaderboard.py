@@ -7,8 +7,8 @@ table written from it.
 An entry is one group of :func:`results.summarize`, one (track, agent, model, prompt) on one episode
 set: n (the completed runs), the successes, their rate and its Wilson 95% interval, the per-episode
 results, the reached and clean rates, the runs that could not be scored, the PhyGS and rules versions,
-the date of the runs and their folder. ``add`` replaces the entry of the same group, and refuses runs
-from a dirty checkout or on another PhyGS version than the rules pin.
+the date of the runs and their folder. ``add`` replaces the entry of the same group, and refuses
+unpinned runs (another PhyGS version or commit than the rules pin, or a dirty checkout), naming why.
 """
 
 from __future__ import annotations
@@ -50,7 +50,7 @@ def where(folder: Path) -> str:
 
 def entries(folder: Path, rules: dict, date: str | None = None) -> list[dict]:
     """The leaderboard entries of a suite's folder, one per group of its completed runs."""
-    summary = results.summarize(folder, rules.get("spl_m_cost_per_manipulation_m", 1.0))
+    summary = results.summarize(folder, rules.get("spl_m_cost_per_manipulation_m", 1.0), rules)
     every, missing = results.load_results(folder)
     scored = [r for r in every if r["status"] == "completed"]
     if not scored:
@@ -60,11 +60,16 @@ def entries(folder: Path, rules: dict, date: str | None = None) -> list[dict]:
         raise ValueError(f"{folder}: one benchmark and episode set per folder, found {sorted(sets, key=str)}.")
     ((benchmark, episode_set),) = sets
     unscored = not_scored(folder, summary["groups"], every, missing)
+    unpinned = [(r, results.pin_reasons(r, rules)) for r in scored]
+    if any(reasons for _, reasons in unpinned):
+        bad = [(r, reasons) for r, reasons in unpinned if reasons]
+        groups = ", ".join(sorted({f"{r['agent']} on {r['track']}" for r, _ in bad}))
+        found = "; ".join(sorted({reason for _, reasons in bad for reason in reasons}))
+        count = f"{len(bad)} of {len(scored)} runs ({groups})"
+        raise ValueError(f"{folder}: {count} are unpinned: {found}. Do not publish them.")
     out = []
     for group in summary["groups"]:
         name = f"{group['agent']} on {group['track']}"
-        if group["unpinned"]:
-            raise ValueError(f"{folder}: {group['unpinned']} runs of {name} came from a dirty checkout.")
         if group["phygs_versions"] != [rules["phygs_version"]]:
             raise ValueError(
                 f"{folder}: the runs of {name} used PhyGS {group['phygs_versions']}; the rules pin"

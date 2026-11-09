@@ -7,9 +7,9 @@
 
 Takes ``foragebench run``'s episode, track and agent and prints the resolved run: the benchmark rules
 and the PhyGS pin, the episode and whether its scene is present, the track's actions and grants, the
-task's rules version, the agent, the budget and the seed. The exit code is 1 when the run would be
-refused (the installed PhyGS is not the pinned one, or the scene is missing). Check a run here before
-spending a simulator on it.
+task's rules version, the agent, the budget and the seed. The exit code is 1 when the scene is
+missing. A PhyGS other than the pinned release (another version or commit) runs, marked unpinned; the
+PhyGS row says why. Check a run here before spending a simulator on it.
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ def main(argv: list[str] | None = None) -> int:
         spec = spec.with_seed(args.seed)
     task = load_task(spec.task)
     agent, _, prepare = load_agent(args.agent)
-    pinned, installed = str(rules["phygs_version"]), foragebench.phygs_version()
+    pin = foragebench.pin_text(rules, foragebench.phygs_version(), foragebench.phygs_code())
     try:
         scene = f"present: {scene_file(spec.scene.id, spec.scene.version)}"
         scene_ok = True
@@ -53,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     release = spec.scene.id if spec.scene.version is None else f"{spec.scene.id}@{spec.scene.version}"
     rows = [
         ("benchmark", f"{rules['benchmark']} ({args.benchmark})"),
-        ("PhyGS", f"pinned {pinned}, installed {installed}" + ("" if pinned == installed else "  REFUSED")),
+        ("PhyGS", pin),
         ("backends", ", ".join(f"{key} {value}" for key, value in rules["backends"].items())),
         ("clock", rules["clock"]),
         ("episode", f"{episode.set or '-'}/{episode.id} ({episode.path})"),
@@ -67,4 +67,4 @@ def main(argv: list[str] | None = None) -> int:
     ]
     for key, value in rows:
         print(f"{key:<10} {value}")
-    return 0 if pinned == installed and scene_ok else 1
+    return 0 if scene_ok else 1

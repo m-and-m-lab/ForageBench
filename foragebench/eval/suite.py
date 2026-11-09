@@ -96,7 +96,7 @@ def main() -> int:
         found = sorted(folder.rglob("result.json"))
         statuses = [json.loads(path.read_text()).get("status", "completed") for path in found] or ["error"]
         print(f"   {', '.join(statuses)} (exit {code})", flush=True)
-    summary = results.summarize(args.output, rules.get("spl_m_cost_per_manipulation_m", 1.0))
+    summary = results.summarize(args.output, rules.get("spl_m_cost_per_manipulation_m", 1.0), rules)
     (args.output / "summary.json").write_text(results.dumps(summary))
     print(results.table(summary))
     return 0

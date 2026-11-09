@@ -1,7 +1,8 @@
-# ForageBench v1 rules. A benchmark version is these rules, the episode manifest, the PhyGS version and
-# the backend pins together; changing any of them is a new benchmark version.
+# ForageBench v1 rules. A benchmark version is these rules, the episode manifest, the PhyGS release (its
+# version and its tag's commit) and the backend pins together; changing any of them is a new benchmark version.
 benchmark: v1
-phygs_version: 0.12.0           # foragebench refuses to import against another phygs.__version__.
+phygs_version: 0.12.0           # The pinned PhyGS release: its version and its tag's commit (tests/test_pin.py).
+phygs_commit: 67fddf15b94f7b99e82be2257b89d83fefdcb4ac  # A run on another version or commit is marked unpinned.
 manifest: foragebench/episodes/manifest_v0.yaml
 backends:
   planner: curobo               # The arm planner (phygs/world/environment.yaml planner.backend).

@@ -27,6 +27,8 @@ from pathlib import Path
 
 import yaml
 
+import foragebench
+
 ROOT = Path(__file__).resolve().parents[2]  # The ForageBench checkout (installed editable).
 
 
@@ -129,10 +131,28 @@ def model_totals(log) -> dict | None:
     )
 
 
-def unpinned(result: dict) -> bool:
-    """Whether the run came from a dirty checkout of PhyGS (``code``) or ForageBench."""
+def pin_reasons(result: dict, rules: dict | None = None) -> list[str]:
+    """Why a run is not publishable as the pinned benchmark: what the run recorded about PhyGS
+    (``provenance.unpinned``; before 2026-11-09 runs recorded only a dirty PhyGS checkout), a dirty
+    ForageBench checkout and, given ``rules``, a PhyGS commit other than the pinned one (which older
+    runs did not check). Empty when it is publishable."""
     provenance = result.get("provenance", {})
-    return any(bool((provenance.get(key) or {}).get("dirty")) for key in ("code", "foragebench"))
+    if "unpinned" in provenance:
+        reasons = list(provenance["unpinned"])
+    else:
+        reasons = [foragebench.dirty_problem("PhyGS")] if (provenance.get("code") or {}).get("dirty") else []
+    if (provenance.get("foragebench") or {}).get("dirty"):
+        reasons.append(foragebench.dirty_problem("ForageBench"))
+    if rules is not None:
+        commit = foragebench.commit_problem((provenance.get("code") or {}).get("commit"), rules)
+        if commit and commit not in reasons:
+            reasons.append(commit)
+    return reasons
+
+
+def unpinned(result: dict, rules: dict | None = None) -> bool:
+    """Whether the run is not publishable as the pinned benchmark (:func:`pin_reasons`)."""
+    return bool(pin_reasons(result, rules))
 
 
 STATUSES = ("completed", "setup_error", "error")
@@ -185,10 +205,11 @@ def setup_of(result: dict) -> tuple[str | None, str | None]:
     return setup.get("model"), setup.get("prompt_sha256")
 
 
-def summarize(folder: Path, cost_per_manipulation_m: float = 1.0) -> dict:
+def summarize(folder: Path, cost_per_manipulation_m: float = 1.0, rules: dict | None = None) -> dict:
     """Rates per (track, agent, model, prompt) and per episode over the completed runs under
     ``folder`` (runs of different models or prompts never pool); the runs that cannot be scored,
-    listed with their reasons."""
+    listed with their reasons. Given the benchmark ``rules``, a run counts as unpinned also when its
+    PhyGS commit is not the pinned one (:func:`pin_reasons`)."""
     every, missing = load_results(Path(folder))
     results = [r for r in every if r["status"] == "completed"]
     not_scored = dict(
@@ -240,7 +261,7 @@ def summarize(folder: Path, cost_per_manipulation_m: float = 1.0) -> dict:
                 mean_sim_seconds=sum(r["sim_seconds"] for r in items) / len(items),
                 episodes=episodes,
                 phygs_versions=sorted({r["provenance"].get("phygs_version", "?") for r in items}),
-                unpinned=sum(unpinned(r) for r in items),  # Runs from a dirty PhyGS or ForageBench checkout.
+                unpinned=sum(unpinned(r, rules) for r in items),  # Runs not publishable as the pinned benchmark.
             )
         )
     return out
@@ -270,7 +291,7 @@ def table(summary: dict) -> str:
         if g.get("model") or g.get("prompt_sha256"):
             lines.append(f"  model {g.get('model')}, prompt {(g.get('prompt_sha256') or '?')[:12]}")
         if g["unpinned"]:
-            lines.append(f"  {g['unpinned']} of these runs came from a dirty checkout: do not publish them")
+            lines.append(f"  {g['unpinned']} of these runs are unpinned: do not publish them")
     for status, runs in summary["not_scored"].items():
         for item in runs:
             lines.append(f"not scored, {status}: {item['run']}: {item['reason']}")
@@ -284,7 +305,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--benchmark", type=Path, default=ROOT / "configs" / "benchmark_v1.yaml")
     args = parser.parse_args(argv)
     rules = yaml.safe_load(args.benchmark.read_text())
-    summary = summarize(args.folder, rules.get("spl_m_cost_per_manipulation_m", 1.0))
+    summary = summarize(args.folder, rules.get("spl_m_cost_per_manipulation_m", 1.0), rules)
     (args.folder / "summary.json").write_text(dumps(summary))
     print(table(summary))
     return 0
