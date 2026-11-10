@@ -4,6 +4,10 @@ How to add an entry: one line under **Unreleased** in the right group (Added, Ch
 
 ## [Unreleased] (develop)
 
+### Changed (2026-11-10)
+
+- **Pinned PhyGS 0.13.0** (was 0.12.0): the composite pick tries a wide set of approaches made by rule (straight down, then tilts of 15, 30, 45 and 60 deg toward each of 12 sides 30 deg apart: 49 approaches, 196 options with the four grasp yaws; before, 3 approaches and 12 options), an exploration cancelled before or between its legs ends as cancelled, and PhyGS's house robot tests run on the house scene's release 1.3.0. `third_party/phygs`, `phygs_version` and `phygs_commit` in `configs/benchmark_v1.yaml`, `README.md`, `docs/install.md` and `docs/task_card.md`. `dev/house_drawer` on release 1.3.0 needs it (on 0.12.0 every pick option on its bottle is refused). A benchmark version change: `pick`, which every agent calls, plans differently, so results on 0.12.0 and 0.13.0 do not pool. Known issue (PhyGS 0.13.0's CHANGELOG): in 1 of 8 pointing-oracle runs of `dev/house_drawer`, the stow with the bottle held was refused after a successful pick, and the run failed.
+
 ### Added (2026-11-09)
 
 - `phygs_commit` in `configs/benchmark_v1.yaml`, beside `phygs_version`: the pinned PhyGS release's tag commit (0.12.0: `67fddf1`). `tests/test_pin.py` checks that it is the `third_party/phygs` commit in the index, so a pin bump changes the submodule, `phygs_version` and `phygs_commit` together. The pinned release is the same; not a benchmark version change.

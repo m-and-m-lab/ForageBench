@@ -1,7 +1,7 @@
 # ForageBench: can a robot find what you asked for and pick it up? A benchmark for interactive object search in photorealistic houses
 
 > [!NOTE]
-> This is the `develop` branch: the benchmark on PhyGS 0.12.0, with the three development episodes (manifest v0). The `main` branch is the May 2026 beta.
+> This is the `develop` branch: the benchmark on PhyGS 0.13.0, with the three development episodes (manifest v0). The `main` branch is the May 2026 beta.
 
 [![IsaacSim](https://img.shields.io/badge/IsaacSim-6.2.0-silver.svg)](https://docs.isaacsim.omniverse.nvidia.com/6.2.0/index.html)
 [![Isaac Lab](https://img.shields.io/badge/IsaacLab-3.0.0-silver)](https://isaac-sim.github.io/IsaacLab/v3.0.0/)
@@ -40,7 +40,7 @@ ForageBench asks a mobile manipulator in a house to find an object it was told a
 
 | | Tested |
 | --- | --- |
-| PhyGS | 0.12.0 at commit 67fddf1, pinned as the submodule `third_party/phygs`; runs on another PhyGS are unpinned ([the pin](docs/install.md#the-phygs-pin)) |
+| PhyGS | 0.13.0 at commit de55832, pinned as the submodule `third_party/phygs`; runs on another PhyGS are unpinned ([the pin](docs/install.md#the-phygs-pin)) |
 | Container | PhyGS's: Isaac Sim 6.2.0, Isaac Lab 3.0.0, Python 3.12, ROS 2 Jazzy ([PhyGS requirements](https://github.com/m-and-m-lab/PhyGS/blob/develop/README.md#-requirements)) |
 | GPU | NVIDIA RTX with RT cores; tested on a GeForce RTX 4090, 24 GB |
 
@@ -70,7 +70,7 @@ isaaclab -p -m foragebench run --episode dev/grid_table --track privileged --age
 Expected output (paths shortened; `describe` prints more lines):
 
 ```
-PhyGS      pinned 0.12.0 at 67fddf1, installed 0.12.0 at 67fddf1: pinned
+PhyGS      pinned 0.13.0 at de55832, installed 0.13.0 at de55832: pinned
 scene      grid_storage, present: .../phygs/scene/builtin/grid_storage/scene.usda
 task       retrieve: 'the small green box'
 rules      version 3

@@ -34,5 +34,5 @@ A run on any other PhyGS (another version, a development version, another commit
 `foragebench version` and `describe` say whether the installed PhyGS is the pinned release, and why not:
 
 ```
-PhyGS      pinned 0.12.0 at 67fddf1, installed 0.12.0 at 47e3edc: unpinned (PhyGS commit 47e3edc is not v0.12.0 at 67fddf1)
+PhyGS      pinned 0.13.0 at de55832, installed 0.14.0.dev0 at 47e3edc: unpinned (PhyGS 0.14.0.dev0 is installed; the rules pin 0.13.0; PhyGS commit 47e3edc is not v0.13.0 at de55832)
 ```

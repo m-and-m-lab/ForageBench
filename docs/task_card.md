@@ -18,7 +18,7 @@
 
 **Episodes.** Manifest v0: three development episodes on two scenes. They are for developing agents, not for claims about unseen houses. Manifest v1 (25 scenes, 100 episodes, hidden test split) is not released.
 
-**Physics.** PhysX at 250 Hz, PhyGS 0.12.0. No attached grasps; drawers are prismatic joints; the base walks under a learned policy; contacts are measured, not prevented. Validated scene release: the house scene's release 1.3.0 (its release checks on 2026-11-08: static checks 13/13, a force check at 240 Hz and door release as in 1.2.0 pass; a one-second sleep check with 30 resets fails, one kitchen cabinet group staying awake, as in 1.2.0). Photorealism is not measured.
+**Physics.** PhysX at 250 Hz, PhyGS 0.13.0. No attached grasps; drawers are prismatic joints; the base walks under a learned policy; contacts are measured, not prevented. Validated scene release: the house scene's release 1.3.0 (its release checks on 2026-11-08: static checks 13/13, a force check at 240 Hz and door release as in 1.2.0 pass; a one-second sleep check with 30 resets fails, one kitchen cabinet group staying awake, as in 1.2.0). Photorealism is not measured.
 
 **What is not claimed.** That success on the dev episodes transfers to unseen houses; that the oracle's success rate is attainable by a method without privileged information; that the rendered appearance matches the physical validation; anything about the real robot.
 
